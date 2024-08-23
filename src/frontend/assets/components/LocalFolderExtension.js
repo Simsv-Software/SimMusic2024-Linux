@@ -18,7 +18,10 @@ const FileExtensionTools = {
 		try {
 			const supportedExtensions = config.getItem("musicFormats").split(" ");
 			let list = [];
-			fs.readdirSync(directory).forEach(file => {
+			
+			for (let file of fs.readdirSync(directory)) {
+				if (file == '.' || file == '..') continue;
+				
 				const fullPath = path.join(directory, file);
 				if (fs.statSync(fullPath).isDirectory()) {
 					list = list.concat(this.scanMusic(fullPath));
@@ -31,7 +34,8 @@ const FileExtensionTools = {
 						list.push("file:" + fullPath);
 					}
 				}
-			});
+			};
+
 			return list;
 		} catch { return []; }
 	},
@@ -43,10 +47,10 @@ const FileExtensionTools = {
 		const formattedMinutes = minutes.toString().padStart(2, '0');
 		const formattedSeconds = seconds.toString().padStart(2, '0');
 		const formattedMilliseconds = milliseconds.toString();
-	  	return `${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}`;
+		return `${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}`;
 	},
 	fileMenuItem: [
-		{type: ["single"], content: { label: "在资源管理器显示", click() {shell.showItemInFolder(getCurrentSelected()[0])} }}
+		{ type: ["single"], content: { label: "在资源管理器显示", click() { shell.showItemInFolder(getCurrentSelected()[0]) } } }
 	]
 }
 
@@ -60,53 +64,57 @@ ExtensionConfig.file.musicList = {
 	add(callback) {
 		// 这里自己实现添加逻辑，简单输入可直接调内置的 prompt(placeholder:str, callback:function) 方法
 		ipcRenderer.invoke("pickFolder")
-		.then(dir => {
-			if (!dir || !dir[0]) return;
-			dir = dir[0].trim().replaceAll("/", "\\");
-			// 内置config读取可用getItem
-			const lists = config.getItem("folderLists");
-			// 由于数据格式由开发者自行定义，重复导入 & 其他错误需要开发者自行处理
-			if (dir.split("\\").length == 2 && !dir.split("\\")[1]) return alert("您不能导入磁盘根目录。");
-			if (lists.includes(dir)) return alert("此目录已被添加到目录列表中。");
-			lists.push(dir);
-			// 内置config写入可用setItem
-			config.setItem("folderLists", lists);
-			// 导入成功后需开发者自行调用callback以更新左侧显示内容（必须），switchList以打开刚才导入的歌单（可选）
-			callback();
-			ExtensionConfig.file.musicList.switchList(dir);
-		});
+			.then(dir => {
+				if (!dir || !dir[0]) return;
+				dir = dir[0].trim();
+				// 内置config读取可用getItem
+				const lists = config.getItem("folderLists");
+				// 由于数据格式由开发者自行定义，重复导入 & 其他错误需要开发者自行处理
+				if (dir == '/') return alert("您不能导入磁盘根目录。");
+				if (lists.includes(dir)) return alert("此目录已被添加到目录列表中。");
+				lists.push(dir);
+				// 内置config写入可用setItem
+				config.setItem("folderLists", lists);
+				// 导入成功后需开发者自行调用callback以更新左侧显示内容（必须），switchList以打开刚才导入的歌单（可选）
+				callback();
+				ExtensionConfig.file.musicList.switchList(dir);
+			});
 	},
 	// 这个函数用于渲染左侧的歌单列表
 	renderList(container) {
 		const lists = config.getItem("folderLists");
 		lists.forEach(name => {
-			const splitted = name.split("\\");
+			const splitted = name.split("/");
 			const folderName = splitted[splitted.length - 1];
 			// 创建一个div即可，可以不需要有类名
 			const element = document.createElement("div");
 			element.textContent = folderName;
 			element.dataset.folderName = name;
 			// 处理点击，一般直接switchList即可
-			element.onclick = () => {this.switchList(name);};
+			element.onclick = () => { this.switchList(name); };
 			// 创建右键菜单，具体使用方法参考 zhujin917/3sqrt7-context-menu/README.md
 			element.oncontextmenu = event => {
 				new ContextMenu([
-					{ label: "查看歌曲", click() {element.click();} },
-					{ label: "在资源管理器中显示", click() {shell.openPath(name);} },
+					{ label: "查看歌曲", click() { element.click(); } },
+					{ label: "在资源管理器中显示", click() { shell.openPath(name); } },
 					{ type: "separator" },
-					{ label: "添加到歌单", submenu: MusicList.getMenuItems(listName => {
-						MusicList.importToMusicList(listName, FileExtensionTools.scanMusic(name));
-						MusicList.switchList(listName, true);
-					}) },
-					{ label: "从列表中移除", click() {
-						confirm(`目录「${folderName}」将从 SimMusic 目录列表中移除，但不会从文件系统中删除。是否继续？`, () => {
-							const lists = config.getItem("folderLists");
-							lists.splice(lists.indexOf(name), 1);
-							config.setItem("folderLists", lists);
-							if (element.classList.contains("active")) switchRightPage("rightPlaceholder");
-							element.remove();
-						});
-					} },
+					{
+						label: "添加到歌单", submenu: MusicList.getMenuItems(listName => {
+							MusicList.importToMusicList(listName, FileExtensionTools.scanMusic(name));
+							MusicList.switchList(listName, true);
+						})
+					},
+					{
+						label: "从列表中移除", click() {
+							confirm(`目录「${folderName}」将从 SimMusic 目录列表中移除，但不会从文件系统中删除。是否继续？`, () => {
+								const lists = config.getItem("folderLists");
+								lists.splice(lists.indexOf(name), 1);
+								config.setItem("folderLists", lists);
+								if (element.classList.contains("active")) switchRightPage("rightPlaceholder");
+								element.remove();
+							});
+						}
+					},
 				]).popup([event.clientX, event.clientY]);
 			};
 			// 把div附加到左侧界面，container会由ExtensionRuntime自动传入，无需担心是否存在
@@ -115,14 +123,14 @@ ExtensionConfig.file.musicList = {
 	},
 	// 这个函数用于切换歌单
 	switchList(name) {
-		const splitted = name.split("\\");
+		const splitted = name.split("/");
 		// 统一调用renderMusicList即可，第二个参数需要传入一个用于识别“当前歌单”的唯一的参数，推荐使用插件名+歌单id以防重复
 		// 如果你的scanMusic必须是异步的，可以先renderMusicList([], id)以切换界面，再renderMusicList(list, id)，id一样就可以
 		// rML第三个参数请固定false，第4个参数指定是否进行预先渲染，如果为true则在二次渲染之前不会显示歌单（适用于在线歌曲必须要获取metadata的情况）
 		renderMusicList(FileExtensionTools.scanMusic(name), {
 			uniqueId: "folder-" + name,
-			errorText: "当前目录为空", 
-			menuItems: FileExtensionTools.fileMenuItem, 
+			errorText: "当前目录为空",
+			menuItems: FileExtensionTools.fileMenuItem,
 			musicListInfo: {
 				name: splitted[splitted.length - 1],
 				dirName: name,
@@ -161,7 +169,7 @@ ExtensionConfig.file.readMetadata = async (file) => {
 		return {
 			title: metadata.common.title,
 			artist: metadataArtist,
-			album: metadata.common.album ? metadata.common.album : file.split("\\")[file.split("\\").length - 2],
+			album: metadata.common.album ? metadata.common.album : file.split("/")[file.split("/").length - 2],
 			time: metadata.format.duration,
 			cover: metadataCover ? metadataCover : "",
 			lyrics: nativeLyrics ? nativeLyrics : "",
@@ -177,15 +185,16 @@ ExtensionConfig.file.player = {
 	// 这个函数用于获取播放地址，返回值可以是本地文件地址 / http(s)地址 / blob地址 / base64 dataurl，不成功可以用空参数调callback
 	//【注意：读取失败return可以用空串】
 	async getPlayUrl(file) {
-		return file.replace("file:", "");
+		return "file://" + file.replace("file:", "");
 	},
 	// 这个函数用于（在本地索引没有歌词的情况下获取歌词），例如在线播放时把歌词全部写到索引不太现实，就会调用这个方法直接读取
 	//【注意：读取失败return可以用空串】
 	async getLyrics(file) {
 		file = file.replace("file:", "");
+
 		const lastDotIndex = file.lastIndexOf(".");
 		lrcPath = file.substring(0, lastDotIndex) + ".lrc";
-		try {return fs.readFileSync(lrcPath, "utf8");}
+		try { return fs.readFileSync(lrcPath, "utf8"); }
 		catch {
 			let id3Lyrics = "";
 			const id3LyricsArray = await nodeId3.Promise.read(file);

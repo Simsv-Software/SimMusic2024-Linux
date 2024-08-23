@@ -1,11 +1,9 @@
 
 // © 2020 - 2024  Simsv Studio
 
-const {app, BrowserWindow, ipcMain, dialog, nativeImage, Tray, Menu, screen} = require("electron");
-const {execSync, exec} = require("child_process");
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, Tray, Menu, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const os = require("os");
 
 app.commandLine.appendSwitch("enable-smooth-scrolling");
 app.commandLine.appendSwitch("enable-features", "WindowsScrollingPersonality");
@@ -17,7 +15,7 @@ let pendingOpenFile = [];
 let tray;
 function showMainWin() {
 	SimMusicWindows.mainWin.show();
-	if (SimMusicWindows.mainWin.isMinimized()) {SimMusicWindows.mainWin.restore();}
+	if (SimMusicWindows.mainWin.isMinimized()) { SimMusicWindows.mainWin.restore(); }
 	SimMusicWindows.mainWin.focus();
 }
 const createWindow = () => {
@@ -34,8 +32,8 @@ const createWindow = () => {
 		title: "SimMusic",
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
 	});
-	SimMusicWindows.mainWin.loadURL(path.join(__dirname, "frontend/main.html"));
-	setTimeout(() => {SimMusicWindows.mainWin.show();}, 50);
+	SimMusicWindows.mainWin.loadFile(path.join(__dirname, "frontend/main.html"));
+	setTimeout(() => { SimMusicWindows.mainWin.show(); }, 50);
 	SimMusicWindows.mainWin.on("close", e => {
 		e.preventDefault();
 		SimMusicWindows.mainWin.hide();
@@ -53,7 +51,7 @@ const createWindow = () => {
 		backgroundThrottling: true,
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
 	});
-	SimMusicWindows.lrcWin.loadURL(path.join(__dirname, "frontend/lrc.html"));
+	SimMusicWindows.lrcWin.loadFile(path.join(__dirname, "frontend/lrc.html"));
 	SimMusicWindows.lrcWin.maximize();
 }
 app.whenReady().then(() => {
@@ -65,9 +63,18 @@ app.whenReady().then(() => {
 		app.exit();
 		return;
 	}
+
+	/*
 	const initOpenFile = process.argv[process.argv.length - 1];
 	if (process.argv.length != 1 && initOpenFile && fs.existsSync(initOpenFile)) pendingOpenFile.push(initOpenFile);
+	*/
+
 	app.on("second-instance", (_event, argv) => {
+		if (isMainWinLoaded) {
+			showMainWin();
+		}
+
+		/*
 		const openFile = argv[argv.length - 1];
 		if (openFile && fs.existsSync(openFile)) {
 			if (!isMainWinLoaded) pendingOpenFile.push(openFile);
@@ -76,6 +83,7 @@ app.whenReady().then(() => {
 				SimMusicWindows.mainWin.webContents.send("fileLaunch", openFile);
 			}
 		}
+		*/
 	});
 });
 ipcMain.handle("mainWinLoaded", () => {
@@ -101,7 +109,7 @@ ipcMain.handle("quitApp", () => {
 // 对话框
 ipcMain.handle("dialog", (_event, type, txt, parent, dialogId) => {
 	const dialogWindow = new BrowserWindow({
-		parent: SimMusicWindows[parent], 
+		parent: SimMusicWindows[parent],
 		modal: true,
 		width: 500,
 		height: 200,
@@ -110,8 +118,15 @@ ipcMain.handle("dialog", (_event, type, txt, parent, dialogId) => {
 		show: false,
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
 	});
-	dialogWindow.loadURL(path.join(__dirname, `frontend/assets/components/dialog.html?type=${type}&txt=${encodeURIComponent(txt)}&parent=${parent}&dialogId=${dialogId}`));
-	dialogWindow.once("ready-to-show", () => { dialogWindow.show(); });
+
+	dialogWindow.loadFile(path.join(__dirname, 'frontend/assets/components/dialog.html'));
+	dialogWindow.once("ready-to-show", () => {
+		dialogWindow.webContents.send("ready", JSON.stringify({
+			type, txt, parent, dialogId
+		}));
+
+		dialogWindow.show();
+	});
 });
 ipcMain.handle("dialogSubmit", (_event, parent, dialogId, txt) => {
 	SimMusicWindows[parent].webContents.send("dialogSubmit", dialogId, txt);
@@ -127,24 +142,24 @@ const createTaskbarButtons = (isPlay) => {
 		{
 			tooltip: "上一首",
 			icon: nativeImage.createFromPath(path.join(__dirname, "frontend/assets/misc/taskbar-prev.png")),
-			click () {SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.prev()", true);}
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.prev()", true); }
 		}, {
 			tooltip: isPlay ? "暂停" : "播放",
 			icon: nativeImage.createFromPath(path.join(__dirname, isPlay ? "frontend/assets/misc/taskbar-pause.png" : "frontend/assets/misc/taskbar-play.png")),
-			click () {SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true);}
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true); }
 		}, {
 			tooltip: "下一首",
 			icon: nativeImage.createFromPath(path.join(__dirname, "frontend/assets/misc/taskbar-next.png")),
-			click () {SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.next()", true);}
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.next()", true); }
 		}
 	]);
 	const menu = Menu.buildFromTemplate([
-		{ label: "SimMusic", type: "normal", enabled: false},
+		{ label: "SimMusic", type: "normal", enabled: false },
 		{ type: "separator" },
-		{ label: "显示主窗口", type: "normal", click() { showMainWin(); }},
-		{ label: isPlay ? "暂停" : "播放", type: "normal", click () {SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true);}},
+		{ label: "显示主窗口", type: "normal", click() { showMainWin(); } },
+		{ label: isPlay ? "暂停" : "播放", type: "normal", click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true); } },
 		{ type: "separator" },
-		{ label: "退出应用", type: "normal", click: app.exit},
+		{ label: "退出应用", type: "normal", click: app.exit },
 	]);
 	tray.setContextMenu(menu);
 }
@@ -162,19 +177,19 @@ ipcMain.handle("musicPause", () => {
 // 桌面歌词
 let lyricsShowing = false;
 ipcMain.handle("toggleLyrics", (_event, isShow) => {
-	if (isShow || isShow === false) {lyricsShowing = !isShow;}
+	if (isShow || isShow === false) { lyricsShowing = !isShow; }
 	if (lyricsShowing) {
 		SimMusicWindows.lrcWin.webContents.send("setHidden", "text", true);
-		setTimeout(() => {SimMusicWindows.lrcWin.hide();}, 100);
+		setTimeout(() => { SimMusicWindows.lrcWin.hide(); }, 100);
 		lyricsShowing = false;
 	} else {
 		SimMusicWindows.lrcWin.show();
-		SimMusicWindows.lrcWin.setIgnoreMouseEvents("true", {forward: true});
+		// SimMusicWindows.lrcWin.setIgnoreMouseEvents("true", { forward: true });
 		SimMusicWindows.lrcWin.setSkipTaskbar(true);
 		SimMusicWindows.lrcWin.setAlwaysOnTop(false);
 		SimMusicWindows.lrcWin.setAlwaysOnTop(true);
 		lyricsShowing = true;
-		setTimeout(() => {SimMusicWindows.lrcWin.webContents.send("setHidden", "text", false);}, 400);
+		setTimeout(() => { SimMusicWindows.lrcWin.webContents.send("setHidden", "text", false); }, 400);
 	}
 	return lyricsShowing;
 });
@@ -182,14 +197,14 @@ ipcMain.handle("lrcUpdate", (_event, lrc) => {
 	SimMusicWindows.lrcWin.webContents.send("lrcUpdate", lrc);
 });
 ipcMain.handle("focusDesktopLyrics", () => {
-	SimMusicWindows.lrcWin.setIgnoreMouseEvents(false);
+	// SimMusicWindows.lrcWin.setIgnoreMouseEvents(false);
 });
 ipcMain.handle("unfocusDesktopLyrics", () => {
-	SimMusicWindows.lrcWin.setIgnoreMouseEvents(true, {forward: true});
+	// SimMusicWindows.lrcWin.setIgnoreMouseEvents(true, { forward: true });
 });
 ipcMain.handle("updateDesktopLyricsConfig", (_event, isProtected) => {
 	SimMusicWindows.lrcWin.webContents.send("lrcWinReload");
-	SimMusicWindows.lrcWin.setContentProtection(isProtected);
+	// SimMusicWindows.lrcWin.setContentProtection(isProtected);
 });
 
 
@@ -230,13 +245,14 @@ ipcMain.handle("toggleMini", () => {
 
 
 
+/*
 // 文件格式关联
 const fileRegAppId = "com.simsv.music";
 const fileRegFileExt = [".mp3", ".flac", ".wav"];
 const fileRegAppPath = process.execPath;
 const fileRegBatPath = path.join(os.tmpdir(), "SimMusicRegister.bat");
 function registerFileExt(isReg) {
-    let commands = `
+	let commands = `
 @echo off
 :: Check for Administrator permissions
 net session >nul 2>&1
@@ -255,14 +271,17 @@ if %errorLevel% neq 0 (
 	} else {
 		commands += `REG DELETE "HKEY_CLASSES_ROOT\\${fileRegAppId}\\shell\\open\\command" /ve /f\n`;
 	}
-    fs.writeFileSync(fileRegBatPath, commands, { encoding: 'utf-8' });
-	try { exec(`cmd.exe /c "${fileRegBatPath}"`); } catch {}
+	fs.writeFileSync(fileRegBatPath, commands, { encoding: 'utf-8' });
+	try { exec(`cmd.exe /c "${fileRegBatPath}"`); } catch { }
 }
 ipcMain.handle("regFileExt", (_event, isReg) => {
 	return registerFileExt(isReg);
 });
+*/
 
-
+ipcMain.handle("regFileExt", (_event, isReg) => {
+	// Unimplemented
+});
 
 
 
@@ -271,7 +290,7 @@ ipcMain.handle("regFileExt", (_event, isReg) => {
 ipcMain.handle("pickFolder", () => {
 	return dialog.showOpenDialogSync(SimMusicWindows.mainWin, {
 		title: "选择目录 - SimMusic",
-		defaultPath: "C:\\",
+		// defaultPath: "C:\\",
 		buttonLabel: "使用此目录",
 		properties: ["openDirectory"],
 	});

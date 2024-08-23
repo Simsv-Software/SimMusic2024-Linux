@@ -7,41 +7,41 @@ const WindowStatus = {
 	lyricsWin: false,
 };
 const WindowOps = {
-	close () {
+	close() {
 		if (!config.getItem("disableBackground")) ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "hide"]);
 		else ipcRenderer.invoke("quitApp");
 	},
-	maximize () {
+	maximize() {
 		if (!WindowStatus.maximized) ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "maximize"]);
 		else ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "unmaximize"]);
 	},
-	minimize () {
+	minimize() {
 		ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "minimize"]);
 	},
-	toggleLyrics () {
+	toggleLyrics() {
 		if (this.lyricsCooldown) return;
 		this.lyricsCooldown = true;
-		setTimeout(() => {this.lyricsCooldown = false;}, 500);
+		setTimeout(() => { this.lyricsCooldown = false; }, 500);
 		ipcRenderer.invoke("toggleLyrics")
-		.then(lyricsShow => {
-			WindowStatus.lyricsWin = lyricsShow;
-			document.getElementById("lyricsBtn").classList[lyricsShow ? "add" : "remove"]("active");
-		});
+			.then(lyricsShow => {
+				WindowStatus.lyricsWin = lyricsShow;
+				document.getElementById("lyricsBtn").classList[lyricsShow ? "add" : "remove"]("active");
+			});
 	},
-	toggleMini () {
+	toggleMini() {
 		if (!document.body.classList.contains("withCurrentMusic")) return alert("当前没有正在播放的曲目。");
 		ipcRenderer.invoke("toggleMini")
-		.then(isMini => {
-			document.body.classList[isMini ? "add" : "remove"]("miniMode");
-		});
+			.then(isMini => {
+				document.body.classList[isMini ? "add" : "remove"]("miniMode");
+			});
 	},
 };
 document.body.onresize = () => {
 	ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "isMaximized"])
-	.then(isMaximized => {
-		WindowStatus.maximized = isMaximized;
-		document.getElementById("maximizeBtn").innerHTML = isMaximized ? "&#xeabb;" : "&#xeab9;";
-	});
+		.then(isMaximized => {
+			WindowStatus.maximized = isMaximized;
+			document.getElementById("maximizeBtn").innerHTML = isMaximized ? "&#xeabb;" : "&#xeab9;";
+		});
 };
 document.body.onresize();
 document.documentElement.onkeydown = e => {
@@ -56,13 +56,13 @@ document.documentElement.onkeydown = e => {
 		case "d": config.setItem("desktopLyricsLeft", Math.min(config.getItem("desktopLyricsLeft") + 2, screen.width)); break;
 	}
 };
-document.documentElement.ondragstart = e => {e.preventDefault();};
+document.documentElement.ondragstart = e => { e.preventDefault(); };
 document.getElementById("appVersion").textContent = SimMusicVersion;
 
 
 // 公用函数
 const SimMusicTools = {
-	escapeHtml(text)  {
+	escapeHtml(text) {
 		const div = document.createElement("div");
 		div.textContent = text;
 		return div.innerHTML;
@@ -79,17 +79,17 @@ const SimMusicTools = {
 		}
 	},
 	getTitleFromPath(path) {
-		path = path.split("\\")[path.split("\\").length - 1];
+		path = path.split("/")[path.split("/").length - 1];
 		const lastDotIndex = path.lastIndexOf(".");
 		if (lastDotIndex === -1 || lastDotIndex === 0) return path;
 		return path.substring(0, lastDotIndex);
 	},
 	getDefaultAlbum(path) {
-		const pathName = path.split("\\")[path.split("\\").length - 2];
+		const pathName = path.split("/")[path.split("/").length - 2];
 		return pathName ?? "未知专辑";
 	},
 	initMusicIndex() {
-		databaseRequest = indexedDB.open('MusicIndex', 1); 
+		databaseRequest = indexedDB.open('MusicIndex', 1);
 		databaseRequest.onsuccess = () => { this.MusicIndex = databaseRequest.result; };
 		databaseRequest.onupgradeneeded = event => { event.target.result.createObjectStore("s", { keyPath: "k" }); };
 	},
@@ -112,7 +112,7 @@ const SimMusicTools = {
 		txn.commit();
 	},
 	getCoverUrl(arrayOrUrl) {
-		if (typeof(arrayOrUrl) == "object") return URL.createObjectURL(new Blob([arrayOrUrl]));
+		if (typeof (arrayOrUrl) == "object") return URL.createObjectURL(new Blob([arrayOrUrl]));
 		return arrayOrUrl;
 	},
 	getWindowsLegalName(original) {
@@ -157,7 +157,7 @@ const ExtensionRuntime = {
 					}
 					ExtensionConfig[packageId].musicList.renderList(span.querySelector(".lists"));
 					document.getElementById("extBars").appendChild(span);
-				} 
+				}
 			} catch (err) {
 				extError = err;
 			}
@@ -177,7 +177,7 @@ const ExtensionRuntime = {
 			};
 			document.getElementById("extensionContainer").appendChild(div);
 		}
-		
+
 		SimMusicTools.readMusicIndex(index => {
 			lastMusicIndex = index;
 			ipcRenderer.invoke("mainWinLoaded").then(list => {
@@ -193,6 +193,7 @@ const ExtensionRuntime = {
 						config.setItem("currentMusic", "");
 					}
 				}
+				
 				setTimeout(() => {
 					document.body.classList.remove("appLoading");
 				}, 500);
@@ -299,32 +300,36 @@ const MusicList = {
 			const element = document.createElement("div");
 			element.textContent = name;
 			element.dataset.listName = name;
-			element.onclick = () => {this.switchList(name);};
+			element.onclick = () => { this.switchList(name); };
 			element.oncontextmenu = event => {
 				new ContextMenu([
-					{ label: "查看歌曲", click() {element.click();} },
+					{ label: "查看歌曲", click() { element.click(); } },
 					{ type: "separator" },
-					{ label: "重命名", click() {
-						prompt(`请为歌单「${name}」设置新名称...`, newName => {
-							const lists = config.getItem("musicLists");
-							let newList = {};
-							for (const listName in lists) {
-								newList[(listName == name) ? newName : listName] = lists[listName];
-							}
-							config.setItem("musicLists", newList);
-							MusicList.renderList();
-							MusicList.switchList(newName);
-						});
-					} },
-					{ label: "删除歌单", click() {
-						confirm(`歌单「${name}」将被永久删除，但这不会影响到歌单中的文件。是否继续？`, () => {
-							const lists = config.getItem("musicLists");
-							delete lists[name];
-							config.setItem("musicLists", lists);
-							if (element.classList.contains("active")) switchRightPage("rightPlaceholder");
-							element.remove();
-						});
-					} },
+					{
+						label: "重命名", click() {
+							prompt(`请为歌单「${name}」设置新名称...`, newName => {
+								const lists = config.getItem("musicLists");
+								let newList = {};
+								for (const listName in lists) {
+									newList[(listName == name) ? newName : listName] = lists[listName];
+								}
+								config.setItem("musicLists", newList);
+								MusicList.renderList();
+								MusicList.switchList(newName);
+							});
+						}
+					},
+					{
+						label: "删除歌单", click() {
+							confirm(`歌单「${name}」将被永久删除，但这不会影响到歌单中的文件。是否继续？`, () => {
+								const lists = config.getItem("musicLists");
+								delete lists[name];
+								config.setItem("musicLists", lists);
+								if (element.classList.contains("active")) switchRightPage("rightPlaceholder");
+								element.remove();
+							});
+						}
+					},
 				]).popup([event.clientX, event.clientY]);
 			};
 			document.getElementById("musicLists").appendChild(element);
@@ -333,25 +338,29 @@ const MusicList = {
 	switchList(name, force) {
 		const lists = config.getItem("musicLists");
 		renderMusicList(lists[name], {
-			uniqueId: "musiclist-" + name, 
-			errorText: "拖入文件以导入歌单", 
+			uniqueId: "musiclist-" + name,
+			errorText: "拖入文件以导入歌单",
 			menuItems: [
-				{type: ["single", "multiple"], content: { label: "从歌单中移除", click() {
-					const files = getCurrentSelected();
-					const confirmDelete = () => {
-						files.forEach(file => {
-							const lists = config.getItem("musicLists");
-							lists[name].splice(lists[name].indexOf(file), 1);
-							config.setItem("musicLists", lists);
-						});
-						document.querySelectorAll("#musicListContainer>.show .musicListContent>tr.selected").forEach(ele => ele.remove());
-						document.querySelector("#musicListContainer>.show").dataset.fileLength = -1;
+				{
+					type: ["single", "multiple"], content: {
+						label: "从歌单中移除", click() {
+							const files = getCurrentSelected();
+							const confirmDelete = () => {
+								files.forEach(file => {
+									const lists = config.getItem("musicLists");
+									lists[name].splice(lists[name].indexOf(file), 1);
+									config.setItem("musicLists", lists);
+								});
+								document.querySelectorAll("#musicListContainer>.show .musicListContent>tr.selected").forEach(ele => ele.remove());
+								document.querySelector("#musicListContainer>.show").dataset.fileLength = -1;
+							}
+							if (files.length > 4) confirm(`确实要从歌单「${name}」删除这 ${files.length} 首曲目吗？`, confirmDelete);
+							else confirmDelete();
+						}
 					}
-					if (files.length > 4) confirm(`确实要从歌单「${name}」删除这 ${files.length} 首曲目吗？`, confirmDelete);
-					else confirmDelete();
-				} }}
-			], 
-			musicListInfo: {name: name}, 
+				}
+			],
+			musicListInfo: { name: name },
 			force: force
 		});
 		document.querySelectorAll(".left .leftBar div").forEach(ele => {
@@ -365,11 +374,11 @@ const MusicList = {
 		for (const name in lists) {
 			array.push({
 				label: name,
-				click: () => {callback(name);}
+				click: () => { callback(name); }
 			});
 		}
 		if (Object.keys(lists).length) array.push(({ type: "separator" }));
-		array.push(({ label: "创建新歌单", click: () => {this.add(callback);} }));
+		array.push(({ label: "创建新歌单", click: () => { this.add(callback); } }));
 		return array;
 	},
 	importToMusicList(name, files) {
@@ -389,10 +398,10 @@ MusicList.renderList();
 // 歌曲&扩展包拖放
 document.documentElement.ondragover = e => {
 	e.preventDefault();
-	if ((document.getElementById("extensionPage").hidden) && 
-		(document.getElementById("musicListContainer").hidden || 
-		!document.querySelector("#musicListContainer>.show") ||
-		!document.querySelector("#musicListContainer>.show").dataset.musicListId.startsWith("musiclist-"))
+	if ((document.getElementById("extensionPage").hidden) &&
+		(document.getElementById("musicListContainer").hidden ||
+			!document.querySelector("#musicListContainer>.show") ||
+			!document.querySelector("#musicListContainer>.show").dataset.musicListId.startsWith("musiclist-"))
 	) return;
 	if (e.dataTransfer.types.includes("Files")) {
 		document.body.classList.add("dragOver");
@@ -403,10 +412,10 @@ document.documentElement.ondragover = e => {
 };
 document.documentElement.ondrop = e => {
 	e.preventDefault();
-	if ((document.getElementById("extensionPage").hidden) && 
-		(document.getElementById("musicListContainer").hidden || 
-		!document.querySelector("#musicListContainer>.show") ||
-		!document.querySelector("#musicListContainer>.show").dataset.musicListId.startsWith("musiclist-"))
+	if ((document.getElementById("extensionPage").hidden) &&
+		(document.getElementById("musicListContainer").hidden ||
+			!document.querySelector("#musicListContainer>.show") ||
+			!document.querySelector("#musicListContainer>.show").dataset.musicListId.startsWith("musiclist-"))
 	) return;
 	document.body.classList.remove("dragOver");
 	if (e.dataTransfer.types.includes("Files")) {
@@ -414,7 +423,7 @@ document.documentElement.ondrop = e => {
 			const currentMusicList = document.querySelector("#musicListContainer>.show").dataset.musicListId;
 			let files = [];
 			const supportedExtensions = config.getItem("musicFormats").split(" ");
-			for (let i = 0; i < e.dataTransfer.files.length; i++){
+			for (let i = 0; i < e.dataTransfer.files.length; i++) {
 				const file = e.dataTransfer.files[i];
 				const fullPath = file.path;
 				const ext = path.extname(fullPath).toLowerCase();
@@ -485,28 +494,28 @@ Search = {
 		this.currentSearchKeyword = keyword;
 		setTimeout(() => {
 			ExtensionConfig[ext].search(keyword, 0)
-			.then((data) => {
-				if (!btn.disabled) return;
-				this.searchPage = 0;
-				this.hasMore = data.hasMore;
-				this.currentSearchExt = ext;
-				renderMusicList(data.files ?? [], {
-					uniqueId: "search",
-					dontRenderBeforeLoaded: true, 
-					errorText: "暂无搜索结果", 
-					menuItems: data.menu ?? [], 
-					force: true, 
-					highlightWords: SimMusicTools.naturalSplit(keyword),
-					finishCallback() { Search.loadIndicatorStatus(); btn.disabled = false; }
+				.then((data) => {
+					if (!btn.disabled) return;
+					this.searchPage = 0;
+					this.hasMore = data.hasMore;
+					this.currentSearchExt = ext;
+					renderMusicList(data.files ?? [], {
+						uniqueId: "search",
+						dontRenderBeforeLoaded: true,
+						errorText: "暂无搜索结果",
+						menuItems: data.menu ?? [],
+						force: true,
+						highlightWords: SimMusicTools.naturalSplit(keyword),
+						finishCallback() { Search.loadIndicatorStatus(); btn.disabled = false; }
+					});
+					document.getElementById("searchBottomIndicator").dataset.status = "";
+				})
+				.catch(err => {
+					if (!btn.disabled) return;
+					Search.hasMore = false;
+					Search.loadIndicatorStatus();
+					showErrorOverlay(err);
 				});
-				document.getElementById("searchBottomIndicator").dataset.status = "";
-			})
-			.catch(err => {
-				if (!btn.disabled) return;
-				Search.hasMore = false;
-				Search.loadIndicatorStatus();
-				showErrorOverlay(err);
-			});
 		}, 200);
 	},
 	loadMore() {
@@ -519,25 +528,25 @@ Search = {
 			const currentKeyword = this.currentSearchKeyword;
 			setTimeout(() => {
 				ExtensionConfig[this.currentSearchExt].search(currentKeyword, this.searchPage + 1)
-				.then((data) => {
-					if (this.currentSearchKeyword != currentKeyword) return;
-					searchBottomIndicator.dataset.status = "";
-					renderMusicList(getCurrentMusicList().concat(data.files ?? []), {
-						uniqueId: "search",
-						dontRenderBeforeLoaded: true, 
-						errorText: "暂无搜索结果", 
-						menuItems: data.menu ?? [],
-						force: true, 
-						finishCallback: this.loadIndicatorStatus,
-						highlightWords: SimMusicTools.naturalSplit(currentKeyword),
+					.then((data) => {
+						if (this.currentSearchKeyword != currentKeyword) return;
+						searchBottomIndicator.dataset.status = "";
+						renderMusicList(getCurrentMusicList().concat(data.files ?? []), {
+							uniqueId: "search",
+							dontRenderBeforeLoaded: true,
+							errorText: "暂无搜索结果",
+							menuItems: data.menu ?? [],
+							force: true,
+							finishCallback: this.loadIndicatorStatus,
+							highlightWords: SimMusicTools.naturalSplit(currentKeyword),
+						});
+						this.searchPage++;
+						this.hasMore = data.hasMore;
+					})
+					.catch(() => {
+						this.hasMore = false;
+						this.loadIndicatorStatus();
 					});
-					this.searchPage++;
-					this.hasMore = data.hasMore;
-				})
-				.catch(() => {
-					this.hasMore = false;
-					this.loadIndicatorStatus();
-				});
 			}, 200);
 		} else {
 			this.hasMore = false;
@@ -577,7 +586,7 @@ const coverObserver = new IntersectionObserver((entries) => {
 			if (!coverData) return;
 			const img = entry.target.querySelector("img");
 			img.src = SimMusicTools.getCoverUrl(coverData);
-			img.onload = () => {reloadMusicListCover();}
+			img.onload = () => { reloadMusicListCover(); }
 		}
 	});
 });
@@ -735,7 +744,7 @@ function renderMusicList(files, args, isFinalRender) {
 function setMusicListSort(thIndex) {
 	let current = config.getItem("musicListSort");
 	if (current[0] == thIndex) {
-		current[1] ++;
+		current[1]++;
 		if (current[1] == 2) current = [5, 0];
 	}
 	else current = [thIndex, 0];
@@ -775,9 +784,9 @@ function updateMusicIndex(allFiles, callback) {
 	const files = allFiles.filter(file => !existedFiles.includes(file));
 	let finished = -1;
 	const record = () => {
-		finished ++;
+		finished++;
 		if (!files.length) callback();
-		else if (finished == files.length) SimMusicTools.writeMusicIndex(lastMusicIndex, () => {callback();});
+		else if (finished == files.length) SimMusicTools.writeMusicIndex(lastMusicIndex, () => { callback(); });
 	}
 	files.forEach(file => {
 		const updateMusicIndex = (data) => {
@@ -826,17 +835,17 @@ function handleMusicContextmenu(event, extraMenu = []) {
 	const files = getCurrentSelected();
 	if (!files.length) return;
 	const singleFileOptions = [
-		{ label: "开始播放", click() {PlayerController.switchMusicWithList(files[0], list, true);} },
-		{ label: "下一首播放", click() {PlayerController.appendPlayList(files[0], true);} },
+		{ label: "开始播放", click() { PlayerController.switchMusicWithList(files[0], list, true); } },
+		{ label: "下一首播放", click() { PlayerController.appendPlayList(files[0], true); } },
 	]
 	const multiFileOptions = [
-		{ label: "在当前曲目后播放", click() {PlayerController.appendPlayList(files, true);} },
-		{ label: "添加到当前播放列表", click() {PlayerController.appendPlayList(files);} },
-		{ label: "替换当前播放列表", click() {PlayerController.switchMusicWithList(files[0], files, true);} },
+		{ label: "在当前曲目后播放", click() { PlayerController.appendPlayList(files, true); } },
+		{ label: "添加到当前播放列表", click() { PlayerController.appendPlayList(files); } },
+		{ label: "替换当前播放列表", click() { PlayerController.switchMusicWithList(files[0], files, true); } },
 	]
 	const commonOptions = [
 		{ type: "separator" },
-		{ label: "添加到歌单", submenu: MusicList.getMenuItems(name => {MusicList.importToMusicList(name, files);}) },
+		{ label: "添加到歌单", submenu: MusicList.getMenuItems(name => { MusicList.importToMusicList(name, files); }) },
 	];
 	const basicOptions = (files.length == 1 ? singleFileOptions : multiFileOptions).concat(commonOptions);
 	let extraOptions = [];
@@ -866,7 +875,7 @@ const PlayerController = {
 		}
 		this.replacePlayList(list);
 		this.switchMusic(file ? file : list[0], isInit, false, audioPause)
-		.then(() => {if (showAP) SimAPUI.show();});
+			.then(() => { if (showAP) SimAPUI.show(); });
 	},
 	// 切歌
 	async switchMusic(file, isInit, forceSwitch, audioPause) {
@@ -920,10 +929,10 @@ const PlayerController = {
 	appendPlayList(fileOrList, toNext = false) {
 		if (fileOrList.forEach) {
 			if (config.getItem("loop") == 2) fileOrList = fileOrList.sort(() => Math.random() - 0.5);
-			fileOrList.forEach(file => {this.appendPlayList(file, toNext);});
+			fileOrList.forEach(file => { this.appendPlayList(file, toNext); });
 			return;
 		}
-		const syncListFromDivs = () => {config.setItem("playList", Array.from(document.querySelectorAll("#playList>div")).map(div => div.dataset.file));}
+		const syncListFromDivs = () => { config.setItem("playList", Array.from(document.querySelectorAll("#playList>div")).map(div => div.dataset.file)); }
 		const list = config.getItem("playList");
 		const file = fileOrList;
 		const activeDiv = document.querySelector("#playList>div.active");
@@ -936,12 +945,12 @@ const PlayerController = {
 					if (div.dataset.file == file) activeDiv.insertAdjacentElement("afterend", div);
 				});
 				syncListFromDivs();
-			} 
+			}
 		} else {
 			const div = this.createListElement(file);
 			if (!div) return;
 			if (!activeDiv) return alert("当前没有正在播放的曲目。");
-			if (toNext)	activeDiv.insertAdjacentElement("afterend", div);
+			if (toNext) activeDiv.insertAdjacentElement("afterend", div);
 			else document.getElementById("playList").appendChild(div);
 			syncListFromDivs();
 		}
@@ -958,7 +967,7 @@ const PlayerController = {
 			<i>&#xF4C8;</i>
 		`;
 		div.dataset.file = file;
-		div.onclick = () => {this.switchMusic(file);}
+		div.onclick = () => { this.switchMusic(file); }
 		div.querySelector("i").onclick = e => {
 			e.stopPropagation();
 			this.deleteFromList(file);
@@ -975,7 +984,7 @@ const PlayerController = {
 				list.splice(list.indexOf(file), 1);
 				config.setItem("playList", list);
 				div.classList.add("removed");
-				setTimeout(() => {div.remove();}, 400);
+				setTimeout(() => { div.remove(); }, 400);
 				if (file == config.getItem("currentMusic")) {
 					if (!list.length) {
 						config.setItem("currentMusic", "");
@@ -1007,7 +1016,7 @@ const PlayerController = {
 				div.classList.add("active");
 				if (!PlayerController.listScrollLock) {
 					PlayerController.listScrollLock = true;
-					setTimeout(() => { div.scrollIntoView({behavior: "smooth", block: "center"}); }, 100);
+					setTimeout(() => { div.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
 					setTimeout(() => { PlayerController.listScrollLock = false; }, 500);
 				}
 			} else div.classList.remove("active");
@@ -1030,14 +1039,14 @@ const DownloadController = {
 		const lists = config.getItem("folderLists");
 		lists.forEach(name => array.push({
 			label: name,
-			click: () => {DownloadController.addTask(name);}
+			click: () => { DownloadController.addTask(name); }
 		}));
 		if (lists.length) array.push(({ type: "separator" }));
 		array.push(({
 			label: Object.keys(lists).length ? "选择其他目录" : "选择目录",
-			click: () => { ipcRenderer.invoke("pickFolder").then(dir => { DownloadController.addTask(dir); }); } 
+			click: () => { ipcRenderer.invoke("pickFolder").then(dir => { DownloadController.addTask(dir); }); }
 		}));
-		return {type: ["single", "multiple"], content: { label: "下载到本地", submenu: array },};
+		return { type: ["single", "multiple"], content: { label: "下载到本地", submenu: array }, };
 	},
 	addTask(destination) {
 		const files = getCurrentSelected();
@@ -1142,7 +1151,7 @@ const DownloadController = {
 				updateDownloadStatus("download", "正在写入元数据", 100);
 				let coverArrBuffer;
 				const coverData = lastMusicIndex[file].cover;
-				if (typeof(coverData) == "object") coverArrBuffer = coverData;
+				if (typeof (coverData) == "object") coverArrBuffer = coverData;
 				else {
 					const coverRes = await fetch(coverData)
 					coverArrBuffer = await coverRes.arrayBuffer();
@@ -1156,7 +1165,7 @@ const DownloadController = {
 						text: lastMusicIndex[file].lyrics ? lastMusicIndex[file].lyrics : await ExtensionConfig[fileScheme].player.getLyrics(file)
 					},
 					image: {
-						type: {id: 3, name: "front cover"},
+						type: { id: 3, name: "front cover" },
 						imageBuffer: Buffer.from(coverArrBuffer)
 					}
 				}, tempPath);
@@ -1205,11 +1214,12 @@ function setMiniModeStatus(text) {
 	document.body.classList.add("miniModeStatus");
 	document.getElementById("miniModeStatus").textContent = text;
 	clearTimeout(miniModeStatusTimeout);
-	miniModeStatusTimeout = setTimeout(() => {document.body.classList.remove("miniModeStatus");}, 1000);
+	miniModeStatusTimeout = setTimeout(() => { document.body.classList.remove("miniModeStatus"); }, 1000);
 }
 
 
 
+/*
 // 系统集成
 config.listenChange("systemMenu", value => {ipcRenderer.invoke("regFileExt", value);})
 ipcRenderer.on("fileLaunch", (_event, file) => {
@@ -1221,6 +1231,7 @@ ipcRenderer.on("fileLaunch", (_event, file) => {
 		SimAPUI.show();
 	});
 });
+*/
 
 
 
@@ -1228,49 +1239,47 @@ ipcRenderer.on("fileLaunch", (_event, file) => {
 // 设置页面
 const SettingsPage = {
 	data: [
-		{type: "title", text: "通用配置"},
-		{type: "boolean", text: "不驻留后台进程", description: "关闭主界面时停止播放并完全退出应用。", configItem: "disableBackground"},
-		{type: "boolean", text: "注册系统菜单", badges: ["experimental"], description: "开启后，您可以在音频文件右键的「打开方式」菜单中选择 SimMusic 进行播放。在移动 SimMusic 程序目录或移除 SimMusic 前，您需要先关闭此选项。", configItem: "systemMenu"},
-		{type: "title", text: "音频扫描"},
-		{type: "input", text: "音频格式", description: "扫描本地音乐时的音频文件扩展名，以空格分隔。", configItem: "musicFormats"},
-		{type: "button", text: "清除音频索引", description: "若您更改了音频元数据，可在此删除索引数据以重新从文件读取。", button: "清除", onclick: () => { SimMusicTools.writeMusicIndex({}, () => { alert("索引数据已清除，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); }); }); }},
-		{type: "title", text: "播放界面"},
-		{type: "boolean", text: "背景动态混色", description: "关闭后可减少播放页对硬件资源的占用。", configItem: "backgroundBlur"},
-		{type: "boolean", text: "3D 特效", badges: ["experimental"], description: "在播放页的歌曲信息、播放列表与歌词视图使用 3D 视觉效果。", configItem: "3dEffect"},
-		{type: "boolean", text: "对播放按钮应用主题色", configItem: "playBtnColor"},
-		{type: "title", text: "播放控制"},
-		{type: "boolean", text: "快速重播", description: "在曲目即将结束时按「快退」按钮以回到当前曲目的开头。", configItem: "fastPlayback"},
-		{type: "boolean", text: "音频淡入淡出", description: "在按下「播放」或「暂停」时对音频的输出音量使用渐变效果。", configItem: "audioFade"},
-		{type: "button", text: "均衡器", badges: ["pending"], description: "下次一定。", button: "配置", onclick: () => { alert("还没写。下次一定。"); }},
-		{type: "title", text: "歌词视图"},
-		{type: "boolean", text: "层级虚化", description: "若无需虚化效果或需要提升性能可关闭此功能。", configItem: "lyricBlur"},
-		{type: "select", text: "文字对齐", options: [["left", "左端对齐"], ["center", "居中对齐"]], description: "此配置项切换曲目生效。", configItem: "lyricAlign"},
-		{type: "range", text: "歌词字号", configItem: "lyricSize", min: 1, max: 3},
-		{type: "range", text: "歌词间距", configItem: "lyricSpace", min: .2, max: 1},
-		{type: "boolean", text: "歌词多语言支持", description: "开启后，时间戳一致的不同歌词将作为多语言翻译同时渲染。此配置项切换曲目生效。", configItem: "lyricMultiLang"},
-		{type: "range", text: "歌词翻译字号", description: "同时控制歌词视图与桌面歌词中的翻译字号。", attachTo: "lyricMultiLang" ,configItem: "lyricTranslation", min: .5, max: 1},
-		{type: "title", text: "桌面歌词"},
-		{type: "boolean", text: "启动时打开", configItem: "autoDesktopLyrics"},
-		{type: "boolean", text: "在截图中隐藏", description: "其他应用截图或录屏时隐藏桌面歌词的内容，与多数截图或录屏软件相兼容，支持 Windows 10 2004 以上版本及 Windows 11。此功能不会影响您查看歌词，对采集卡等外置硬件无效。", configItem: "desktopLyricsProtection"},
-		{type: "boolean", text: "在播放页自动关闭", description: "当 SimMusic 主窗口打开播放页时自动关闭桌面歌词。", configItem: "desktopLyricsAutoHide"},
-		{type: "boolean", text: "显示歌词翻译", configItem: "desktopLyricsTranslation", attachTo: "lyricMultiLang"},
-		{type: "color", text: "字体颜色", configItem: "desktopLyricsColor"},
-		{type: "boolean", text: "启用边框", configItem: "desktopLyricsStrokeEnabled"},
-		{type: "color", text: "边框颜色", attachTo: "desktopLyricsStrokeEnabled", configItem: "desktopLyricsStroke"},
-		{type: "range", text: "字体大小", configItem: "desktopLyricsSize", min: 20, max: 60},
-		{type: "range", text: "歌词区域宽度", configItem: "desktopLyricsWidth", min: 500, max: screen.width},
-		{type: "boolean", text: "始终居中", description: "无视用户左右拖拽操作，保持桌面歌词在屏幕中央。", configItem: "desktopLyricsCentered"},
-		{type: "title", text: "曲目下载"},
-		{type: "select", text: "并行下载数", options: [[1, "1 首曲目"], [2, "2 首曲目"], [3, "3 首曲目"], [4, "4 首曲目"], [5, "5 首曲目"]], description: "下载在线歌曲时并行下载的任务数量。", configItem: "parallelDownload"},
-		{type: "input", text: "命名格式", description: "可使用 [title] 表示歌曲名，[artist] 表示艺术家。SimMusic 会自动处理 Windows 无法写入的文件名。", configItem: "downloadFileName"},
+		{ type: "title", text: "通用配置" },
+		{ type: "boolean", text: "不驻留后台进程", description: "关闭主界面时停止播放并完全退出应用。", configItem: "disableBackground" },
+		{ type: "title", text: "音频扫描" },
+		{ type: "input", text: "音频格式", description: "扫描本地音乐时的音频文件扩展名，以空格分隔。", configItem: "musicFormats" },
+		{ type: "button", text: "清除音频索引", description: "若您更改了音频元数据，可在此删除索引数据以重新从文件读取。", button: "清除", onclick: () => { SimMusicTools.writeMusicIndex({}, () => { alert("索引数据已清除，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); }); }); } },
+		{ type: "title", text: "播放界面" },
+		{ type: "boolean", text: "背景动态混色", description: "关闭后可减少播放页对硬件资源的占用。", configItem: "backgroundBlur" },
+		{ type: "boolean", text: "3D 特效", badges: ["experimental"], description: "在播放页的歌曲信息、播放列表与歌词视图使用 3D 视觉效果。", configItem: "3dEffect" },
+		{ type: "boolean", text: "对播放按钮应用主题色", configItem: "playBtnColor" },
+		{ type: "title", text: "播放控制" },
+		{ type: "boolean", text: "快速重播", description: "在曲目即将结束时按「快退」按钮以回到当前曲目的开头。", configItem: "fastPlayback" },
+		{ type: "boolean", text: "音频淡入淡出", description: "在按下「播放」或「暂停」时对音频的输出音量使用渐变效果。", configItem: "audioFade" },
+		{ type: "button", text: "均衡器", badges: ["pending"], description: "下次一定。", button: "配置", onclick: () => { alert("还没写。下次一定。"); } },
+		{ type: "title", text: "歌词视图" },
+		{ type: "boolean", text: "层级虚化", description: "若无需虚化效果或需要提升性能可关闭此功能。", configItem: "lyricBlur" },
+		{ type: "select", text: "文字对齐", options: [["left", "左端对齐"], ["center", "居中对齐"]], description: "此配置项切换曲目生效。", configItem: "lyricAlign" },
+		{ type: "range", text: "歌词字号", configItem: "lyricSize", min: 1, max: 3 },
+		{ type: "range", text: "歌词间距", configItem: "lyricSpace", min: .2, max: 1 },
+		{ type: "boolean", text: "歌词多语言支持", description: "开启后，时间戳一致的不同歌词将作为多语言翻译同时渲染。此配置项切换曲目生效。", configItem: "lyricMultiLang" },
+		{ type: "range", text: "歌词翻译字号", description: "同时控制歌词视图与桌面歌词中的翻译字号。", attachTo: "lyricMultiLang", configItem: "lyricTranslation", min: .5, max: 1 },
+		{ type: "title", text: "桌面歌词" },
+		{ type: "boolean", text: "启动时打开", configItem: "autoDesktopLyrics" },
+		{ type: "boolean", text: "在播放页自动关闭", description: "当 SimMusic 主窗口打开播放页时自动关闭桌面歌词。", configItem: "desktopLyricsAutoHide" },
+		{ type: "boolean", text: "显示歌词翻译", configItem: "desktopLyricsTranslation", attachTo: "lyricMultiLang" },
+		{ type: "color", text: "字体颜色", configItem: "desktopLyricsColor" },
+		{ type: "boolean", text: "启用边框", configItem: "desktopLyricsStrokeEnabled" },
+		{ type: "color", text: "边框颜色", attachTo: "desktopLyricsStrokeEnabled", configItem: "desktopLyricsStroke" },
+		{ type: "range", text: "字体大小", configItem: "desktopLyricsSize", min: 20, max: 60 },
+		{ type: "range", text: "歌词区域宽度", configItem: "desktopLyricsWidth", min: 500, max: screen.width },
+		{ type: "boolean", text: "始终居中", description: "无视用户左右拖拽操作，保持桌面歌词在屏幕中央。", configItem: "desktopLyricsCentered" },
+		{ type: "title", text: "曲目下载" },
+		{ type: "select", text: "并行下载数", options: [[1, "1 首曲目"], [2, "2 首曲目"], [3, "3 首曲目"], [4, "4 首曲目"], [5, "5 首曲目"]], description: "下载在线歌曲时并行下载的任务数量。", configItem: "parallelDownload" },
+		{ type: "input", text: "命名格式", description: "可使用 [title] 表示歌曲名，[artist] 表示艺术家。SimMusic 会自动处理 Windows 无法写入的文件名。", configItem: "downloadFileName" },
 	],
 	init() {
 		const settingsContainer = document.getElementById("settingsContainer");
 		SettingsPage.loadElementHeight();
 		if (settingsContainer.innerHTML) return;
 		const badges = {
-			"experimental": "<i>&#xED3F;</i>实验性",
-			"pending": "<i>&#xF4C8;</i>暂未支持"
+			"experimental": "<i>&#xED3F;</i> 实验性",
+			"pending": "<i>&#xF4C8;</i> 暂未支持"
 		};
 		this.data.forEach(data => {
 			const div = document.createElement("div");
@@ -1366,13 +1375,13 @@ window.addEventListener("resize", SettingsPage.loadElementHeight);
 
 // 桌面歌词
 function updateDesktopLyricsConfig() {
-	ipcRenderer.invoke("updateDesktopLyricsConfig", config.getItem("desktopLyricsProtection"));
+	ipcRenderer.invoke("updateDesktopLyricsConfig", /* config.getItem("desktopLyricsProtection") */ null);
 }
 config.listenChange("desktopLyricsColor", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsStrokeEnabled", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsStroke", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsSize", updateDesktopLyricsConfig);
-config.listenChange("desktopLyricsProtection", updateDesktopLyricsConfig);
+// config.listenChange("desktopLyricsProtection", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsWidth", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsTop", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsLeft", updateDesktopLyricsConfig);

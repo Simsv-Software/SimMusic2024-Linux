@@ -1222,8 +1222,11 @@ function setMiniModeStatus(text) {
 /*
 // 系统集成
 config.listenChange("systemMenu", value => {ipcRenderer.invoke("regFileExt", value);})
+*/
 ipcRenderer.on("fileLaunch", (_event, file) => {
 	file = "file:" + file;
+	console.log(file)
+
 	updateMusicIndex([file], () => {
 		const list = config.getItem("playList");
 		if (list.includes(file)) PlayerController.switchMusic(file);
@@ -1231,7 +1234,6 @@ ipcRenderer.on("fileLaunch", (_event, file) => {
 		SimAPUI.show();
 	});
 });
-*/
 
 
 

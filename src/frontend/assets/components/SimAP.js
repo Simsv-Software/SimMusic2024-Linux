@@ -353,7 +353,11 @@ const SimAPUI = {
 	hide() {
 		if (this.playingAnimation) return;
 		if (!document.body.classList.contains("playerShown")) return;
-		document.exitFullscreen();
+
+		try {
+			document.exitFullscreen();
+		} catch {}
+
 		document.body.classList.remove("playerShown");
 		this.playingAnimation = true;
 		setTimeout(() => {

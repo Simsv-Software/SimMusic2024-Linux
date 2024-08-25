@@ -46,6 +46,12 @@ const createWindow = () => {
 	});
 
 	// 歌词窗体
+	createLRCWindow();
+}
+
+// 桌面歌词
+let lyricsShowing = false;
+const createLRCWindow = () => {
 	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 	SimMusicWindows.lrcWin = new BrowserWindow({
 		width: width,
@@ -59,6 +65,12 @@ const createWindow = () => {
 	});
 
 	SimMusicWindows.lrcWin.loadFile(path.join(__dirname, "frontend/lrc.html"));
+	SimMusicWindows.lrcWin.on("close", () => {
+		lyricsShowing = false;
+		SimMusicWindows.mainWin.webContents.send("lrcWindowClosed");
+
+		createLRCWindow();
+	});
 }
 
 const processCliArg = (argv, pending) => {
@@ -200,7 +212,6 @@ ipcMain.handle("musicPause", () => {
 
 
 // 桌面歌词
-let lyricsShowing = false;
 ipcMain.handle("toggleLyrics", (_event, isShow) => {
 	if (isShow || isShow === false) { lyricsShowing = !isShow; }
 
@@ -329,7 +340,8 @@ ipcMain.handle("pickFolder", () => {
 
 ipcMain.handle("openDevtools", () => {
 	SimMusicWindows.mainWin.webContents.openDevTools();
-	SimMusicWindows.lrcWin.webContents.openDevTools();
+	// SimMusicWindows.lrcWin.webContents.openDevTools();
+	
 	// 傻逼谷歌搞个宋体当默认代码字体 怎么想的 给你眼珠子扣下来踩两脚
 	SimMusicWindows.mainWin.webContents.once("devtools-opened", () => {
 		const css = `

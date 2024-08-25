@@ -1235,6 +1235,11 @@ ipcRenderer.on("fileLaunch", (_event, file) => {
 	});
 });
 
+ipcRenderer.on("lrcWindowClosed", () => {
+	WindowStatus.lyricsWin = false;
+	document.getElementById("lyricsBtn").classList.remove("active");
+});
+
 
 
 

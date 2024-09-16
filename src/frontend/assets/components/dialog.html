@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-window-id="mainWin">
+<html>
 
 <head>
 	<meta charset="utf-8">
@@ -9,64 +9,72 @@
 <body>
 
 
-	<!-- 主体内容 -->
+	<head>
+		<meta charset="utf-8">
+		<link rel="stylesheet" href="dialog.css">
+	</head>
 
-	<header>
-		<i onclick="cancelDialog()" id="closeBtn">&#xeab8;</i>
-	</header>
-
-	<form onsubmit="submitDialog()">
-		<h1>提示</h1>
-		<div id="text"></div>
-		<input id="prompt" autofocus>
-		<div class="buttons">
-			<button class="sub" id="subBtn" type="button" onclick="cancelDialog()">取消</button>
-			<button><i>&#xEB7B;</i> 确定</button>
-		</div>
-	</form>
+	<body>
 
 
-	<!-- 引入脚本 -->
-	<script>
-		const { ipcRenderer } = require("electron");
-		ipcRenderer.on('ready', (_, data) => {
-			const obj = JSON.parse(data);
+		<!-- 主体内容 -->
 
-			switch (obj.type) {
-				case "alert":
-					document.getElementById("prompt").hidden = true;
-					document.getElementById("subBtn").hidden = true;
-					document.getElementById("text").textContent = obj.txt;
-					break;
-				case "prompt":
-					document.getElementById("prompt").placeholder = obj.txt;
-					break;
-				case "confirm":
-					document.getElementById("prompt").hidden = true;
-					document.getElementById("text").textContent = obj.txt;
-					break;
-			}
+		<header>
+			<i onclick="cancelDialog()" id="closeBtn">&#xeab8;</i>
+		</header>
 
-			window.submitDialog = () => {
-				if (event) event.preventDefault();
-				ipcRenderer.invoke("dialogSubmit", obj.parent, obj.dialogId, document.getElementById("prompt").value);
-				window.close();
-			}
+		<form onsubmit="submitDialog()">
+			<h1>提示</h1>
+			<div id="text"></div>
+			<input id="prompt" autofocus>
+			<div class="buttons">
+				<button class="sub" id="subBtn" type="button" onclick="cancelDialog()">取消</button>
+				<button><i>&#xEB7B;</i> 确定</button>
+			</div>
+		</form>
 
-			window.cancelDialog = () => {
-				if (event) event.preventDefault();
-				ipcRenderer.invoke("dialogCancel", obj.parent);
-				window.close();
-			}
 
-			document.documentElement.onkeydown = e => {
-				if ((e.ctrlKey && ["i", "I", "r", "R"].includes(e.key)) || e.key == "Tab") e.preventDefault();
-				if (document.activeElement.tagName.toLowerCase() != "input") e.preventDefault();
-				if (e.key == "Enter") submitDialog();
-				if (e.key == "Escape") cancelDialog();
-			};
-		});
-	</script>
-</body>
+		<!-- 引入脚本 -->
+		<script>
+			const { ipcRenderer } = require("electron");
+			ipcRenderer.on('ready', (_, data) => {
+				const obj = JSON.parse(data);
+
+				switch (obj.type) {
+					case "alert":
+						document.getElementById("prompt").hidden = true;
+						document.getElementById("subBtn").hidden = true;
+						document.getElementById("text").textContent = obj.txt;
+						break;
+					case "prompt":
+						document.getElementById("prompt").placeholder = obj.txt;
+						break;
+					case "confirm":
+						document.getElementById("prompt").hidden = true;
+						document.getElementById("text").textContent = obj.txt;
+						break;
+				}
+
+				window.submitDialog = () => {
+					if (event) event.preventDefault();
+					ipcRenderer.invoke("dialogSubmit", obj.parent, obj.dialogId, document.getElementById("prompt").value);
+					window.close();
+				}
+
+				window.cancelDialog = () => {
+					if (event) event.preventDefault();
+					ipcRenderer.invoke("dialogCancel", obj.parent);
+					window.close();
+				}
+
+				document.documentElement.onkeydown = e => {
+					if ((e.ctrlKey && ["i", "I", "r", "R"].includes(e.key)) || e.key == "Tab") e.preventDefault();
+					if (document.activeElement.tagName.toLowerCase() != "input") e.preventDefault();
+					if (e.key == "Enter") submitDialog();
+					if (e.key == "Escape") cancelDialog();
+				};
+			});
+		</script>
+	</body>
 
 </html>

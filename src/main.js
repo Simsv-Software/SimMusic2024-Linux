@@ -1,11 +1,12 @@
 // © 2020 - 2024  Simsv Studio
 
-const { app, BrowserWindow, ipcMain, dialog, nativeImage, Tray, Menu, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, Tray, Menu, screen, session, webContents } = require("electron");
+const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
 app.commandLine.appendSwitch("enable-smooth-scrolling");
-app.commandLine.appendSwitch("enable-features", "WindowsScrollingPersonality");
+app.commandLine.appendSwitch("enable-features", "WindowsScrollingPersonality,FluentScrollbar,ParallelDownloading");
 
 // 创建窗口
 const iconImage = nativeImage.createFromPath(path.join(__dirname, "frontend/assets/icon-blue.png"));
@@ -32,6 +33,12 @@ const createWindow = () => {
 		show: false,
 		title: "SimMusic",
 		backgroundColor: "#1E9FFF",
+		titleBarStyle: "hidden",
+		titleBarOverlay: {
+			color: "rgba(0,0,0,0)",
+			symbolColor: "white",
+			height: 35,
+		},
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
 	});
 
@@ -42,7 +49,7 @@ const createWindow = () => {
 
 	SimMusicWindows.mainWin.on("close", e => {
 		e.preventDefault();
-		SimMusicWindows.mainWin.hide();
+		SimMusicWindows.mainWin.webContents.executeJavaScript("WindowOps.close()", true);
 	});
 
 	// 歌词窗体
@@ -61,6 +68,7 @@ const createLRCWindow = () => {
 		show: false,
 		transparent: true,
 		alwaysOnTop: true,
+		backgroundThrottling: false,
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
 	});
 
@@ -118,8 +126,17 @@ app.whenReady().then(() => {
 ipcMain.handle("mainWinLoaded", () => {
 	if (isMainWinLoaded) return [];
 	isMainWinLoaded = true;
+	setTimeout(() => {
+		SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
+	}, 500);
 	return pendingOpenFile;
 });
+
+// Linux start - fix incorrect overlay color
+ipcMain.handle("overlayColor", (_, inPlayer) => {
+	SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: inPlayer ? "rgba(255,255,255,.8)" : "black", height: 35 });
+});
+// Linux end
 
 
 // 处理窗口事件
@@ -147,25 +164,83 @@ ipcMain.handle("dialog", (_event, type, txt, parent, dialogId) => {
 		frame: false,
 		resizable: false,
 		show: false,
-		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
+		maximizable: false,
+		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false, devTools: false }
 	});
 
 	dialogWindow.loadFile(path.join(__dirname, 'frontend/assets/components/dialog.html'));
 	dialogWindow.once("ready-to-show", () => {
 		dialogWindow.webContents.send("ready", JSON.stringify({
-			type, txt, parent, dialogId
+			type, txt, parent, dialogId: dialogId + '' /* Linux - fix error */
 		}));
 
 		dialogWindow.show();
 	});
 });
-
-ipcMain.handle("dialogSubmit", (_event, parent, dialogId, txt) => {
-	SimMusicWindows[parent].webContents.send("dialogSubmit", dialogId, txt);
+ipcMain.handle("dialogSubmit", async (_event, parent, dialogId, txt) => {
+	if (dialogId.startsWith("wv")) {
+		try {
+			const cookies = await session.fromPartition("dialog-" + dialogId).cookies.get({});
+			const json = JSON.stringify({
+				cookies: cookies,
+				url: txt,
+			});
+			SimMusicWindows[parent].webContents.send("dialogSubmit", dialogId, json);
+		} catch {
+			SimMusicWindows[parent].webContents.send("dialogSubmit", dialogId, "{}");
+		}
+	} else {
+		SimMusicWindows[parent].webContents.send("dialogSubmit", dialogId, txt);
+	}
 });
 
 ipcMain.handle("dialogCancel", (_event, parent) => {
 	SimMusicWindows[parent].webContents.send("dialogCancel");
+});
+ipcMain.handle("webview", (_event, url, parent, dialogId, width, height, showFinishBtn) => {
+	const dialogWindow = new BrowserWindow({
+		parent: SimMusicWindows[parent],
+		modal: true,
+		width: width ?? 600,
+		height: height ?? 500,
+		frame: false,
+		resizable: true,
+		show: false,
+		maximizable: true,
+		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false, webviewTag: true, devTools: false }
+	});
+
+	dialogWindow.loadFile(path.join(__dirname, 'frontend/assets/components/webview.html'));
+	dialogWindow.center();
+	dialogWindow.once("ready-to-show", () => {
+		dialogWindow.webContents.send("ready", JSON.stringify({
+			url, showFinishBtn, parent, dialogId: dialogId + ''
+		}));
+
+		dialogWindow.show();
+	});
+});
+ipcMain.handle("webviewDialogLoaded", (_event, wcId) => {
+	const wc = webContents.fromId(wcId);
+	wc.setWindowOpenHandler(({ url }) => {
+		wc.loadURL(url);
+		return { action: "deny" }
+	});
+});
+ipcMain.handle("modal", (_event, url, height, parent) => {
+	const dialogWindow = new BrowserWindow({
+		parent: SimMusicWindows[parent],
+		modal: true,
+		width: 500,
+		height: height,
+		frame: false,
+		resizable: false,
+		show: false,
+		maximizable: false,
+		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false, devTools: false }
+	});
+	dialogWindow.loadFile(path.join(__dirname, "frontend/assets/components/", url));
+	dialogWindow.once("ready-to-show", () => { dialogWindow.show(); });
 });
 
 
@@ -175,15 +250,15 @@ const createTaskbarButtons = (isPlay) => {
 		{
 			tooltip: "上一首",
 			icon: nativeImage.createFromPath(path.join(__dirname, "frontend/assets/misc/taskbar-prev.png")),
-			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.prev()", true); }
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.prev(true)", true); }
 		}, {
 			tooltip: isPlay ? "暂停" : "播放",
 			icon: nativeImage.createFromPath(path.join(__dirname, isPlay ? "frontend/assets/misc/taskbar-pause.png" : "frontend/assets/misc/taskbar-play.png")),
-			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true); }
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay(true)", true); }
 		}, {
 			tooltip: "下一首",
 			icon: nativeImage.createFromPath(path.join(__dirname, "frontend/assets/misc/taskbar-next.png")),
-			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.next()", true); }
+			click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.next(true)", true); }
 		}
 	]);
 
@@ -266,6 +341,9 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setAlwaysOnTop(false);
 			SimMusicWindows.mainWin.setSkipTaskbar(false);
 			SimMusicWindows.mainWin.setOpacity(1);
+			SimMusicWindows.mainWin.setMinimizable(true);
+			SimMusicWindows.mainWin.setClosable(true);
+			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
 		}, 50);
 		return isMiniMode = false;
 	} else {
@@ -279,6 +357,9 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setSkipTaskbar(true);
 			SimMusicWindows.mainWin.setPosition(width - 360, height - 90);
 			SimMusicWindows.mainWin.setOpacity(.98);
+			SimMusicWindows.mainWin.setMinimizable(false);
+			SimMusicWindows.mainWin.setClosable(false);
+			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 10 });
 		}, 50);
 		return isMiniMode = true;
 	}
@@ -291,30 +372,29 @@ ipcMain.handle("toggleMini", () => {
 // 文件格式关联
 const fileRegAppId = "com.simsv.music";
 const fileRegFileExt = [".mp3", ".flac", ".wav"];
-const fileRegAppPath = process.execPath;
-const fileRegBatPath = path.join(os.tmpdir(), "SimMusicRegister.bat");
-function registerFileExt(isReg) {
-	let commands = `
+const appPath = process.execPath;
+const batchPath = path.join(os.tmpdir(), "sim-music-operations.bat");
+const requestAdminCmd = `
 @echo off
-:: Check for Administrator permissions
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-	echo Requesting Administrator permissions...
 	powershell.exe -Command "Start-Process '%~0' -Verb RunAs"
 	exit /B
 )
 `;
+function registerFileExt(isReg) {
+	let commands = requestAdminCmd;
 	if (isReg) {
-		commands += `REG ADD "HKEY_CLASSES_ROOT\\${fileRegAppId}\\shell\\open\\command" /ve /d "\\"${fileRegAppPath}\\" \\"%%1\\"" /f\n`;
-		commands += `REG ADD "HKEY_CLASSES_ROOT\\${fileRegAppId}\\DefaultIcon" /ve /d "\\"${path.dirname(fileRegAppPath)}\\resources\\file-icon.ico\\",0" /f\n`;
+		commands += `REG ADD "HKEY_CLASSES_ROOT\\${fileRegAppId}\\shell\\open\\command" /ve /d "\\"${appPath}\\" \\"%%1\\"" /f\n`;
+		commands += `REG ADD "HKEY_CLASSES_ROOT\\${fileRegAppId}\\DefaultIcon" /ve /d "\\"${path.dirname(appPath)}\\resources\\file-icon.ico\\",0" /f\n`;
 		fileRegFileExt.forEach(ext => {
 			commands += `REG ADD "HKEY_CLASSES_ROOT\\${ext}" /ve /d "${fileRegAppId}" /f\n`;
 		});
 	} else {
 		commands += `REG DELETE "HKEY_CLASSES_ROOT\\${fileRegAppId}\\shell\\open\\command" /ve /f\n`;
 	}
-	fs.writeFileSync(fileRegBatPath, commands, { encoding: 'utf-8' });
-	try { exec(`cmd.exe /c "${fileRegBatPath}"`); } catch { }
+	fs.writeFileSync(batchPath, commands, { encoding: "utf-8" });
+	try { exec(`cmd.exe /c "${batchPath}"`); } catch {}
 }
 ipcMain.handle("regFileExt", (_event, isReg) => {
 	return registerFileExt(isReg);
@@ -325,6 +405,11 @@ ipcMain.handle("regFileExt", (_event, isReg) => {
 	// Unimplemented
 });
 
+
+// 本体更新
+ipcMain.handle("appUpdate", () => {
+	// Unimplemented
+});
 
 
 
@@ -338,33 +423,56 @@ ipcMain.handle("pickFolder", () => {
 	});
 });
 
+ipcMain.handle("shutdownCountdown", () => {
+	const countdown = new BrowserWindow({
+		frame: false,
+		resizable: false,
+		kiosk: true,
+		transparent: true,
+		alwaysOnTop: true,
+		skipTaskbar: true,
+		parent: SimMusicWindows.mainWin,
+		modal: true,
+		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
+	});
+	countdown.loadFile(path.join(__dirname, "frontend/assets/components/shutdown.html"));
+});
+
+ipcMain.handle("cmd", (_event, cmd) => {
+	exec(cmd);
+});
+
+ipcMain.handle("mainWinExec", (_event, js) => {
+	SimMusicWindows.mainWin.webContents.executeJavaScript(js);
+});
+
 ipcMain.handle("openDevtools", () => {
 	SimMusicWindows.mainWin.webContents.openDevTools();
 	// SimMusicWindows.lrcWin.webContents.openDevTools();
-	
+
 	// 傻逼谷歌搞个宋体当默认代码字体 怎么想的 给你眼珠子扣下来踩两脚
 	SimMusicWindows.mainWin.webContents.once("devtools-opened", () => {
 		const css = `
 			:root {
 				--sys-color-base: var(--ref-palette-neutral100);
-				--source-code-font-family: consolas;
+				--source-code-font-family: cascadia code, consolas;
 				--source-code-font-size: 12px;
-				--monospace-font-family: consolas;
+				--monospace-font-family: cascadia mono, consolas, monospace;
 				--monospace-font-size: 12px;
-				--default-font-family: system-ui, sans-serif;
+				--default-font-family: system-ui;
 				--default-font-size: 12px;
 			}
 			.-theme-with-dark-background {
 				--sys-color-base: var(--ref-palette-secondary25);
 			}
 			body {
-				--default-font-family: system-ui,sans-serif;
+				--default-font-family: system-ui;
 			}`;
 		SimMusicWindows.mainWin.webContents.devToolsWebContents.executeJavaScript(`
 			const overriddenStyle = document.createElement('style');
 			overriddenStyle.innerHTML = '${css.replaceAll('\n', ' ')}';
 			document.body.append(overriddenStyle);
-			document.body.classList.remove('platform-windows');`);
+			document.body.classList.remove('platform-linux');`);
 	});
 });
 

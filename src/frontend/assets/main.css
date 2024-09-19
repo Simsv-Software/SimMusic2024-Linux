@@ -201,18 +201,6 @@ body:not(.disableHighlight) .right #musicListContainer .tableContainer table td>
 .right #aboutPage .main>div section>div{margin-left:10px;}
 .right #aboutPage .main>div section>div>b{display:block;font-size:1.2em;}
 .right #aboutPage .main>div section>div>span{font-size:.9em;opacity:.8;display:block;margin-bottom:5px;}
-/* 更新 */
-.right #updateContainer{padding-top:90px!important;}
-.right #updateInfo{background:white;margin:0 -2.5px;padding:5px 20px 15px 20px;}
-.right #updateInfo p{margin:3px 5px;}
-.right #updateInfo h1,.right #updateInfo h2,.right #updateInfo h3{margin:15px 5px 5px 5px;zoom:.9;}
-.right #updateInfo h1{border-bottom:1px solid rgba(0,0,0,.05);padding-bottom:5px;}
-.right #updateInfo ul,.right #updateInfo ol{margin:0;padding-left:23px;}
-.right #updateInfo blockquote{background:rgba(0,0,0,.025);margin:5px 0;padding:7px 10px;border-radius:10px;}
-.right #updateInfo blockquote p{margin:3px 0;}
-.right #updateInfo img{margin-top:5px;background:white;border-radius:5px;width:100%;display:block;}
-.right #updateInfo code{font-family:"Source Code Pro", "Consolas", "font";}
-.right .operations{margin:0 -2.5px;padding-top:10px;text-align:right;}
 
 
 /* 主窗体 - 文件拖入 */

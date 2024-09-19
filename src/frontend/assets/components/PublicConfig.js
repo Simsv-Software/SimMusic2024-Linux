@@ -9,7 +9,6 @@ const defaultConfig = {
 	loop: 0,
 	headerButtonsDistance: 96,
 	lrcShow: true,
-	updatePrefix: "",
 	albumScale: true,
 	musicFormats: ".mp3 .wav .flac",
 	showLocator: true,

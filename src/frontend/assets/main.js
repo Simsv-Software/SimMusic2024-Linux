@@ -38,10 +38,7 @@ const WindowOps = {
 };
 document.body.onresize = () => {
 	ipcRenderer.invoke("winOps", [document.documentElement.dataset.windowId, "isMaximized"])
-		.then(isMaximized => {
-			WindowStatus.maximized = isMaximized;
-			document.getElementById("maximizeBtn").innerHTML = isMaximized ? "&#xeabb;" : "&#xeab9;";
-		});
+		.then(isMaximized => WindowStatus.maximized = isMaximized);
 };
 document.body.onresize();
 document.documentElement.onkeydown = e => {
@@ -1561,7 +1558,6 @@ const SettingsPage = {
 		{ type: "boolean", text: "不驻留后台进程", description: "关闭主界面时停止播放并完全退出应用。", configItem: "disableBackground" },
 		// {type: "boolean", text: "注册系统菜单", badges: ["experimental"], description: "开启后，您可以在音频文件右键的「打开方式」菜单中选择 SimMusic 进行播放。在移动 SimMusic 程序目录或移除 SimMusic 前，您需要先关闭此选项。", configItem: "systemMenu"}, /* Linux - Unimplemented */
 		{ type: "input", inputType: "number", text: "顶端操作按钮与系统窗口按钮的距离", description: "单位 px，KDE 下为 96，若此数值不合适请手动调整。", configItem: "headerButtonsDistance" },
-		{ type: "select", text: "更新下载源", description: "在境内连接 Github 官方源可能导致下载速度极慢或下载失败。", options: [["", "Github 官方源"], ["https://ghp.ci/", "GHProxy 镜像"], ["https://gh.wwvw.top/", "CloudFlare"]], configItem: "updatePrefix" },
 		{ type: "title", text: "音频扫描" },
 		{ type: "input", text: "本地音频格式", description: "扫描本地音乐与导入本地文件时识别的音频文件扩展名，以空格分隔。", configItem: "musicFormats" },
 		{ type: "title", text: "歌单界面" },
@@ -1747,23 +1743,4 @@ function initAboutPage() {
 		}
 	});
 	document.getElementById("copyrightYear").textContent = new Date().getFullYear();
-}
-
-
-// 检查更新
-const ghRepo = "simsv-software/simmusic2024-windows";
-let updateUrl;
-fetch(`https://api.github.com/repos/${ghRepo}/releases/latest`)
-	.then(res => res.json())
-	.then(json => {
-		if (json.name != SimMusicVersion) {
-			document.querySelector(".leftBar>div[data-page-id='updatePage']").hidden = false;
-			document.getElementById("updateInfo").innerHTML = marked.parse(json.body?.split("<!-- CL START -->")[1]?.split("<!-- CL END -->")[0] ?? "更新信息获取失败");
-			document.getElementById("updateVersion").innerText = `版本 ${json.name} · 发布于 ${json.published_at.substring(0, 10)}`;
-			if (json?.assets[0] && json?.assets[0]?.name == "auto-update-package") updateUrl = json?.assets[0]?.browser_download_url;
-		}
-	});
-function startUpdate() {
-	if (!updateUrl) return document.getElementById("updateInfoBtn").click();
-	modalWindow("modal-update.html?downUrl=" + `${config.getItem("updatePrefix")}${updateUrl}`, 160);
 }

@@ -41,7 +41,6 @@
 					<div data-page-id="extensionPage" onclick="switchRightPage('extensionPage')"><i>&#xF450;</i> 扩展</div>
 					<div data-page-id="settingsPage" onclick="switchRightPage('settingsPage');SettingsPage.init()"><i>&#xF0EE;</i> 设置</div>
 					<div data-page-id="aboutPage" onclick="switchRightPage('aboutPage');initAboutPage()"><i>&#xEE59;</i> 关于</div>
-					<div data-page-id="updatePage" onclick="switchRightPage('updatePage');" hidden><i>&#xF24C;</i> 更新</div>
 				</div>
 			</div>
 			<!-- 右侧栏 -->
@@ -166,20 +165,6 @@
 								<img src="assets/misc/recommend-salt.png">
 								<div><b>Salt Player</b><span>界面优雅的 Android 端本地音乐播放器。</span></div>
 							</section>
-						</div>
-					</div>
-				</div>
-				<!-- 更新页 -->
-				<div id="updatePage" class="page" hidden>
-					<div class="header">
-						<i>&#xF24C;</i> 版本更新
-						<small id="updateVersion"></small>
-					</div>
-					<div id="updateContainer" class="container">
-						<div id="updateInfo"></div>
-						<div class="operations">
-							<button class="sub" id="updateInfoBtn" onclick="webview(`https://github.com/${ghRepo}/releases/latest`, {width: 1100, height: 750})"><i>&#xEDCB;</i> 完整日志</button>
-							<button onclick="startUpdate()"><i>&#xEE68;</i> 立即更新</button>
 						</div>
 					</div>
 				</div>

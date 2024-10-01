@@ -1,4 +1,4 @@
-SimMusicVersion = "0.2.0";
+SimMusicVersion = "0.2.1";
 
 
 // 窗口处理
@@ -172,17 +172,24 @@ const ExtensionRuntime = {
 			div.classList.add("block");
 			div.innerHTML = `
 				<section>
-					<div>${SimMusicTools.escapeHtml(extData[packageId].extName)}</div>
+					<div>${SimMusicTools.escapeHtml(extData[packageId].extName)}${extData[packageId].isDev ? ` <badge><i>&#xEBAD;</i> 由清单文件加载的开发扩展</badge>` : ""}</div>
 					<span>
+						
 						<i>&#xEE59;</i> 扩展包名: ${SimMusicTools.escapeHtml(packageId)}<br>
 						<i>&#xEE51;</i> 扩展版本: ${SimMusicTools.escapeHtml(extData[packageId].version)}<br>
-						${extError ? `<i>&#xEB97;</i> ${extError}` : ""}
+						${extError ? `<i>&#xEB97;</i> ${SimMusicTools.escapeHtml(extError)}<br>` : ""}
 					</span>
 				</section>
-				<div class="${permData[packageId]?.removeSidebar ? "" : `on `}perm permSidebar">在导航栏显示<span class="toggle"></span></div>
+				<div class="${permData[packageId]?.removeSidebar ? "" : `on `}perm permSidebar">允许显示歌单<span class="toggle"></span></div>
 				<button class="sub"${packageId == "file" ? " disabled" : ""}>卸载</button>`;
 			div.querySelector("button").onclick = () => {
-				this.uninstall(packageId);
+				if (!extData[packageId].isDev) this.uninstall(packageId);
+				else {
+					confirm("确实要卸载开发扩展吗？", () => {
+						config.setItem("devExt", null);
+						alert("扩展已成功卸载，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); });
+					});
+				}
 			};
 			const togglePerm = (name, className) => {
 				document.getElementById("extReloadTip").hidden = false;
@@ -241,12 +248,18 @@ const ExtensionRuntime = {
 					code: code,
 				};
 				config.setItem("ext", extData);
-				alert("扩展已成功安装，按「确定」重载此应用生效。", () => {
-					ipcRenderer.invoke("restart");
-				});
+				alert("扩展已成功安装，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); });
 			} catch (err) {
 				console.warn(err);
-				alert("扩展包已损坏、无法读取或存在未知错误。");
+				if (file.path.endsWith("manifest.json") && config.getItem("devMode")) {
+					try {
+						config.setItem("devExt", file.path);
+						alert("已从清单文件加载此扩展，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); });
+					} catch {
+						alert("扩展清单文件损坏或无法读取。");
+					}
+				}
+				else alert("扩展包已损坏、无法读取或存在未知错误。");
 			}
 		});
 	},
@@ -255,13 +268,38 @@ const ExtensionRuntime = {
 			const extData = config.getItem("ext");
 			delete extData[packageId];
 			config.setItem("ext", extData);
-			alert("扩展已成功卸载，按「确定」重载此应用生效。", () => {
-				ipcRenderer.invoke("restart");
-			});
+			alert("扩展已成功卸载，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); });
 		});
 	},
 	async getExtData() {
 		const extData = config.getItem("ext");
+		if (config.getItem("devExt")) {
+			try {
+				const json = fs.readFileSync(config.getItem("devExt"));
+				const manifest = JSON.parse(json);
+				if (!manifest.packageId || !manifest.version || !manifest.extName) throw ("");
+				const extPath = path.dirname(config.getItem("devExt"));
+				let code = "";
+				manifest.entries.forEach(entry => {
+					code += fs.readFileSync(path.join(extPath, entry));
+				});
+				extData[manifest.packageId] = {
+					code,
+					extName: manifest.extName,
+					uiName: manifest.uiName ?? manifest.extName,
+					version: manifest.version,
+					isDev: true,
+				}
+			} catch {
+				extData["dev-error"] = {
+					code: "throw('清单文件损坏')",
+					extName: "dev-error",
+					uiName: "dev-error",
+					version: "dev-error",
+					isDev: true,
+				}
+			}
+		}
 		extData["file"] = {
 			code: await (await fetch("assets/components/LocalFolderExtension.js")).text(),
 			uiName: "本地",
@@ -272,6 +310,37 @@ const ExtensionRuntime = {
 	}
 };
 ExtensionRuntime.init();
+
+
+
+// 扩展支持函数
+ExtensionFunctions = {
+	insertStyle(css) {
+		const style = document.createElement("style");
+		style.innerHTML = css;
+		document.documentElement.appendChild(style);
+	},
+	insertNavigationItem(options) {
+		if (document.getElementById(options.pageId)) return;
+		const navbarDiv = document.createElement("div");
+		navbarDiv.dataset.pageId = options.pageId;
+		navbarDiv.innerHTML = `<i>&#x${options.icon};</i> ${SimMusicTools.escapeHtml(options.text)}`;
+		navbarDiv.onclick = () => { switchRightPage(options.pageId); };
+		if (options.appendBefore) {
+			let appendBeforeElement;
+			document.querySelectorAll(".left>div>div[data-page-id]").forEach(div => {
+				if (div.dataset.pageId == options.appendBefore) appendBeforeElement = div;
+			});
+			document.querySelector(".left>div").insertBefore(navbarDiv, appendBeforeElement);
+		} else document.querySelector(".left>div").appendChild(navbarDiv);
+		const pageDiv = document.createElement("div");
+		pageDiv.id = options.pageId;
+		pageDiv.hidden = true;
+		document.querySelector(".right").appendChild(pageDiv);
+		return { navbarDiv, pageDiv };
+	},
+};
+
 
 
 
@@ -1029,6 +1098,7 @@ const PlayerController = {
 		document.body.appendChild(audio);
 		loadVolumeUi();
 		document.title = "SimMusic";
+		eqAudioContext = eqSource = null;
 		this.loadMusicListActive();
 	},
 	// 渲染歌单界面播放中歌曲
@@ -1179,7 +1249,7 @@ SleepMode = {
 		const offset = currentTime - this.status[0];
 		document.body.classList.add("sleepMode");
 		const indicatorTime = Math.round(this.status[1] * 60 - offset / 1000);
-		document.querySelector(".controls .infoBar i").innerText = indicatorTime < 0 ? ("+" + SimMusicTools.formatTime(0 - indicatorTime)) : SimMusicTools.formatTime(indicatorTime);
+		document.querySelector(".controls .infoBar i").textContent = indicatorTime < 0 ? ("+" + SimMusicTools.formatTime(0 - indicatorTime)) : SimMusicTools.formatTime(indicatorTime);
 		if (offset / 1000 / 60 > this.status[1]) this.endTime();
 	},
 	endTime() {
@@ -1222,18 +1292,17 @@ SleepMode = {
 function openEqConfig() {
 	modalWindow("modal-eq.html", 300);
 }
-let eqAudioContext;
-let eqSsource;
+let eqAudioContext, eqSource;
 let eqCurrentFilters = [];
 function applyEq() {
 	const data = config.getItem("eqProfile") == "basic" ? config.getItem("eqConfBasic") : config.getItem("eqConfPro");
 	try {
 		const audioElement = document.getElementById("audio");
 		if (!eqAudioContext) eqAudioContext = new AudioContext();
-		if (!eqSsource) eqSsource = eqAudioContext.createMediaElementSource(audioElement);
+		if (!eqSource) eqSource = eqAudioContext.createMediaElementSource(audioElement);
 		eqCurrentFilters.forEach(filter => {
 			try {
-				eqSsource.disconnect(filter);
+				eqSource.disconnect(filter);
 				filter.disconnect(eqAudioContext.destination);
 			} catch { }
 		});
@@ -1245,7 +1314,7 @@ function applyEq() {
 			filter.Q.value = item.Q;
 			return filter;
 		});
-		let lastNode = eqSsource;
+		let lastNode = eqSource;
 		filters.forEach(filter => {
 			lastNode.connect(filter);
 			lastNode = filter;
@@ -1562,6 +1631,7 @@ const SettingsPage = {
 		{ type: "input", text: "本地音频格式", description: "扫描本地音乐与导入本地文件时识别的音频文件扩展名，以空格分隔。", configItem: "musicFormats" },
 		{ type: "title", text: "歌单界面" },
 		{ type: "boolean", text: "显示「曲目定位」按钮", configItem: "showLocator" },
+		{ type: "boolean", text: "对播放按钮应用主题色", configItem: "playBtnColor" },
 		{ type: "boolean", text: "启用主题图片", description: "在 SimMusic 主界面显示主题图片。", configItem: "themeImage" },
 		{ type: "select", text: "选择主题图片", options: [["cover", "曲目封面"], ["local", "本地文件"]], configItem: "themeImageType", attachTo: "themeImage" },
 		{ type: "boolean", text: "图片模糊效果", configItem: "themeImageBlur", attachTo: "themeImage" },
@@ -1689,6 +1759,7 @@ const SettingsPage = {
 			SettingsPage.loadElementHeight();
 			SettingsPage.loadElementFoldStatus();
 		});
+		initInputMenu();
 	},
 	loadElementHeight() {
 		document.querySelectorAll("#settingsContainer>div[data-attach-to]").forEach(div => {
@@ -1703,6 +1774,44 @@ const SettingsPage = {
 	}
 }
 window.addEventListener("resize", SettingsPage.loadElementHeight);
+
+
+
+// 输入框右键菜单
+function initInputMenu() {
+	document.querySelectorAll("input").forEach(input => {
+		if (!input.oncontextmenu && !["date", "time", "file", "color", "button", "checkbox"].includes(input.type)) input.oncontextmenu = e => {
+			const isFocused = getSelection().toString().trim() && (getSelection().anchorNode.contains(input) || getSelection().anchorNode == input);
+			new ContextMenu([
+				{
+					label: "全选",
+					icon: "F1FF",
+					click() { input.select(); },
+				},
+				{
+					label: "复制",
+					icon: "ECD5",
+					click() { document.execCommand("copy"); },
+					disabled: !isFocused,
+				},
+				{
+					label: "剪切",
+					icon: "F0C1",
+					click() { document.execCommand("cut"); },
+					disabled: !isFocused,
+				},
+				{
+					label: "粘贴",
+					click() { document.execCommand("paste"); },
+					icon: "EB91",
+				},
+			]).popup([e.clientX, e.clientY]);
+		}
+	});
+}
+initInputMenu();
+
+
 
 // 桌面歌词
 function updateDesktopLyricsConfig() {

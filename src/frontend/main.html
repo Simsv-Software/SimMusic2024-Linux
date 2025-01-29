@@ -18,6 +18,12 @@
 			<i onclick="ipcRenderer.invoke('openDevtools')" id="devBtn" hidden title="开发者工具">&#xeb6d;</i>
 			<i onclick="WindowOps.toggleMini()" id="miniBtn" title="迷你模式">&#xeb14;</i>
 			<i onclick="WindowOps.toggleLyrics()" id="lyricsBtn" title="桌面歌词">词</i>
+			
+			<div style="display: contents;" id="nonNativeButtons">
+				<i onclick="WindowOps.minimize()">&#xeaba;</i>
+				<i onclick="WindowOps.maximize()" id="maximizeBtn">&#xeab9;</i>
+				<i onclick="WindowOps.close()" id="closeBtn">&#xeab8;</i>
+			</div>
 		</header>
 
 

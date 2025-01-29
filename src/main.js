@@ -8,6 +8,14 @@ const fs = require("fs");
 app.commandLine.appendSwitch("enable-smooth-scrolling");
 app.commandLine.appendSwitch("enable-features", "WindowsScrollingPersonality,FluentScrollbar,ParallelDownloading");
 
+// Linux - 读取配置
+const configPath = path.join(app.getPath("userData"), "config.json");
+if (!fs.existsSync(configPath)) {
+	fs.writeFileSync(configPath, "{}");
+}
+
+const config = JSON.parse(fs.readFileSync(configPath).toString());
+
 // 创建窗口
 const iconImage = nativeImage.createFromPath(path.join(__dirname, "frontend/assets/icon-blue.png"));
 const SimMusicWindows = {};
@@ -23,7 +31,7 @@ function showMainWin() {
 
 const createWindow = () => {
 	// 主窗体
-	SimMusicWindows.mainWin = new BrowserWindow({
+	const options = {
 		width: 1000,
 		height: 700,
 		minWidth: 1000,
@@ -34,13 +42,18 @@ const createWindow = () => {
 		title: "SimMusic",
 		backgroundColor: "#1E9FFF",
 		titleBarStyle: "hidden",
-		titleBarOverlay: {
-			color: "rgba(0,0,0,0)",
-			symbolColor: "white",
-			height: 35,
-		},
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
-	});
+	};
+
+	if (config.nativeHeaderButtons) {
+		options.titleBarOverlay = {
+			color: "#1E9FFF",
+			symbolColor: "white",
+			height: 35
+		};
+	}
+
+	SimMusicWindows.mainWin = new BrowserWindow(options);
 
 	SimMusicWindows.mainWin.loadFile(path.join(__dirname, "frontend/main.html"));
 	SimMusicWindows.mainWin.setIcon(iconImage);
@@ -131,14 +144,49 @@ app.whenReady().then(() => {
 ipcMain.handle("mainWinLoaded", () => {
 	if (isMainWinLoaded) return [];
 	isMainWinLoaded = true;
-	setTimeout(() => {
-		SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
-	}, 500);
+
+	if (config.nativeHeaderButtons) {
+		setTimeout(() => {
+			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
+		}, 500);
+	}
+
 	return pendingOpenFile;
 });
 
+// Linux start - 配置
+(() => {
+	let saveTimer;
+	function save() {
+		fs.writeFileSync(configPath, JSON.stringify(config));
+	}
+
+	ipcMain.handle("setConfig", (_, k, v) => {
+		console.log(k, v);
+		config[k] = v;
+
+		// Debounce - improves efficiency
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(save, 1000);
+	});
+
+	ipcMain.handle("getConfig", (_, k) => {
+		return config.hasOwnProperty(k) ? config[k] : null;
+	});
+
+	// Save immediately
+	ipcMain.handle("saveConfig", () => {
+		save();
+	});
+})();
+// Linux end
+
 // Linux start - fix incorrect overlay color
 ipcMain.handle("overlayColor", (_, inPlayer) => {
+	if (!config.nativeHeaderButtons) {
+		return;
+	}
+
 	SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: inPlayer ? "rgba(255,255,255,.8)" : "black", height: 35 });
 });
 // Linux end

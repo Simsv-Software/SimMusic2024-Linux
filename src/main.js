@@ -398,7 +398,9 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setOpacity(1);
 			SimMusicWindows.mainWin.setMinimizable(true);
 			SimMusicWindows.mainWin.setClosable(true);
-			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
+			if (config.nativeHeaderButtons) {
+				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
+			}
 		}, 50);
 		return isMiniMode = false;
 	} else {
@@ -414,7 +416,9 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setOpacity(.98);
 			SimMusicWindows.mainWin.setMinimizable(false);
 			SimMusicWindows.mainWin.setClosable(false);
-			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 10 });
+			if (config.nativeHeaderButtons) {
+				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 10 });
+			}
 		}, 50);
 		return isMiniMode = true;
 	}

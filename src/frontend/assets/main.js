@@ -1606,21 +1606,6 @@ ipcRenderer.on("lrcWindowClosed", () => {
 
 
 // 设置页面
-navigator.storage.estimate().then(size => {
-	const humanSize = SimMusicTools.humanSize(size.usageDetails.indexedDB ?? 0);
-	const settingsObject = {
-		type: "button",
-		text: `清理索引缓存`,
-		badges: [`<i>&#xEC16;</i> ${humanSize}`],
-		description: "定期清理可保持 SimMusic 运行性能；若您更改了音频元数据，亦可在此清理缓存以重新读取。",
-		button: "清理",
-		onclick: () => {
-			SimMusicTools.writeMusicIndex({}, () => { alert("索引数据已清除，按「确定」重载此应用生效。", () => { ipcRenderer.invoke("restart"); }); });
-		}
-	};
-	SettingsPage.data.splice(5, 0, settingsObject);
-});
-
 const SettingsPage = {
 	data: [
 		{ type: "title", text: "通用配置" },
@@ -1631,6 +1616,22 @@ const SettingsPage = {
 		{ type: "boolean", text: "减小小窗模式高度", description: "可以修复部分环境中小窗模式渲染问题，若无问题无需开启。", configItem: "decreaseMiniHeight" },
 		{ type: "title", text: "音频扫描" },
 		{ type: "input", text: "本地音频格式", description: "扫描本地音乐与导入本地文件时识别的音频文件扩展名，以空格分隔。", configItem: "musicFormats" },
+		async () => {
+			const size = await navigator.storage.estimate();
+			const humanSize = SimMusicTools.humanSize(size.usageDetails.indexedDB ?? 0);
+			return {
+				type: "button",
+				text: `清理索引缓存`,
+				badges: [`<i>&#xEC16;</i> ${humanSize}`],
+				description: "定期清理可保持 SimMusic 运行性能；若您更改了音频元数据，亦可在此清理缓存以重新读取。",
+				button: "清理",
+				onclick: () => {
+					SimMusicTools.writeMusicIndex({}, () => {
+						alert("索引数据已清除，按「确定」重载此应用生效。", () => ipcRenderer.invoke("restart"));
+					});
+				}
+			};
+		},
 		{ type: "title", text: "歌单界面" },
 		{ type: "boolean", text: "显示「曲目定位」按钮", configItem: "showLocator" },
 		{ type: "boolean", text: "对播放按钮应用主题色", configItem: "playBtnColor" },
@@ -1676,7 +1677,7 @@ const SettingsPage = {
 		{ type: "boolean", text: "写入专辑封面", configItem: "downloadMetadataCover" },
 		{ type: "select", text: "歌词下载方式", options: [[1, "嵌入音频文件"], [2, "独立存储"], [0, "不下载歌词"]], configItem: "downloadMetadataLyrics" },
 	],
-	init() {
+	async init() {
 		const settingsContainer = document.getElementById("settingsContainer");
 		SettingsPage.loadElementHeight();
 		if (settingsContainer.innerHTML) return;
@@ -1695,10 +1696,18 @@ const SettingsPage = {
 			background: "rgba(30,159,255, .8)",
 			color: "white"
 		});
-		
+
 		settingsContainer.appendChild(noticeElem);
 
-		this.data.forEach(data => {
+		for (let data of this.data) {
+			if (typeof data == "function") {
+				data = data();
+
+				if (data instanceof Promise) {
+					data = await data;
+				}
+			}
+
 			const div = document.createElement("div");
 			const normalContent = `
 				<section>
@@ -1774,7 +1783,7 @@ const SettingsPage = {
 			settingsContainer.appendChild(div);
 			SettingsPage.loadElementHeight();
 			SettingsPage.loadElementFoldStatus();
-		});
+		}
 		initInputMenu();
 	},
 	loadElementHeight() {

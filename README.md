@@ -23,6 +23,10 @@
 ## ✏️ 说明
 我们不保证原版的所有功能在 Linux 下都可用，若您发现任何 Bug，请提出 Issue。
 
+### Weaknesses / TODOs
+ - 桌面歌词: **完全不可用**
+ - 原生操作按钮: **可自定义性趋近于零**
+
 ## 🔗 帮助文档
 - <a href="https://github.com/Simsv-Software/SimMusic2024/wiki/SimMusic-%E7%94%A8%E6%88%B7%E6%8C%87%E5%8D%97">📄 SimMusic 用户指南</a>
 - <a href="https://github.com/Simsv-Software/SimMusic2024/wiki/SimMusic-扩展索引">🧩 SimMusic 扩展索引</a>

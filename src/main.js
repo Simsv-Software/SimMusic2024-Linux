@@ -162,7 +162,6 @@ ipcMain.handle("mainWinLoaded", () => {
 	}
 
 	ipcMain.handle("setConfig", (_, k, v) => {
-		console.log(k, v);
 		config[k] = v;
 
 		// Debounce - improves efficiency
@@ -404,10 +403,12 @@ ipcMain.handle("toggleMini", () => {
 		}, 50);
 		return isMiniMode = false;
 	} else {
+		const miniHeight = config.decreaseMiniHeight ? 55 : 60;
+
 		setTimeout(() => {
 			SimMusicWindows.mainWin.unmaximize();
-			SimMusicWindows.mainWin.setMinimumSize(340, 60);
-			SimMusicWindows.mainWin.setSize(340, 60);
+			SimMusicWindows.mainWin.setMinimumSize(340, miniHeight);
+			SimMusicWindows.mainWin.setSize(340, miniHeight);
 			SimMusicWindows.mainWin.setResizable(false);
 			SimMusicWindows.mainWin.setHasShadow(false);
 			SimMusicWindows.mainWin.setAlwaysOnTop(true);

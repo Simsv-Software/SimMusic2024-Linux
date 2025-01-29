@@ -23,7 +23,7 @@
 ## ✏️ 说明
 我们不保证原版的所有功能在 Linux 下都可用，若您发现任何 Bug，请提出 Issue。
 
-### Weaknesses / TODOs
+### 🚫 Weaknesses / TODOs
  - 桌面歌词: **完全不可用**
  - 原生操作按钮: **可自定义性趋近于零**
 

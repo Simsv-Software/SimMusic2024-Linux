@@ -509,31 +509,6 @@ ipcMain.handle("mainWinExec", (_event, js) => {
 ipcMain.handle("openDevtools", () => {
 	SimMusicWindows.mainWin.webContents.openDevTools();
 	// SimMusicWindows.lrcWin.webContents.openDevTools();
-
-	// 傻逼谷歌搞个宋体当默认代码字体 怎么想的 给你眼珠子扣下来踩两脚
-	SimMusicWindows.mainWin.webContents.once("devtools-opened", () => {
-		const css = `
-			:root {
-				--sys-color-base: var(--ref-palette-neutral100);
-				--source-code-font-family: cascadia code, consolas;
-				--source-code-font-size: 12px;
-				--monospace-font-family: cascadia mono, consolas, monospace;
-				--monospace-font-size: 12px;
-				--default-font-family: system-ui;
-				--default-font-size: 12px;
-			}
-			.-theme-with-dark-background {
-				--sys-color-base: var(--ref-palette-secondary25);
-			}
-			body {
-				--default-font-family: system-ui;
-			}`;
-		SimMusicWindows.mainWin.webContents.devToolsWebContents.executeJavaScript(`
-			const overriddenStyle = document.createElement('style');
-			overriddenStyle.innerHTML = '${css.replaceAll('\n', ' ')}';
-			document.body.append(overriddenStyle);
-			document.body.classList.remove('platform-linux');`);
-	});
 });
 
 

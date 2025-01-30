@@ -559,8 +559,8 @@ ipcMain.handle("mainWinExec", (_event, js) => {
 });
 
 ipcMain.handle("openDevtools", () => {
-	// SimMusicWindows.mainWin.webContents.openDevTools();
-	SimMusicWindows.lrcWin.webContents.openDevTools();
+	SimMusicWindows.mainWin.webContents.openDevTools();
+	// SimMusicWindows.lrcWin.webContents.openDevTools();
 });
 
 

@@ -31,7 +31,10 @@
 				if (timer.textContent == "0") {
 					clearInterval(intervalId);
 					const {ipcRenderer} = require("electron");
-					ipcRenderer.invoke("cmd", `shutdown /${{shutdown: "s /hybrid /f /t 0", sleep: "h"}[operationType]}`);
+					ipcRenderer.invoke("cmd", {
+						shutdown: 'shutdown now',
+						sleep: 'systemctl hibernate'
+					}[operationType]);
 					window.close();
 				}
 			}, 990);

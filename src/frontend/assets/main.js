@@ -45,13 +45,13 @@ document.documentElement.onkeydown = e => {
 	if (document.activeElement.tagName.toLowerCase() == "input") return;
 	e.preventDefault();
 	if (document.activeElement.tagName.toLowerCase() == "input") return;
-	const moveOffset = e.ctrlKey ? 10 : 1;
-	switch (e.key.toLowerCase()) {
-		case "w": config.setItem("desktopLyricsTop", Math.max(config.getItem("desktopLyricsTop") - moveOffset, 0)); break;
-		case "a": config.setItem("desktopLyricsLeft", Math.max(config.getItem("desktopLyricsLeft") - moveOffset, 0)); break;
-		case "s": config.setItem("desktopLyricsTop", Math.min(config.getItem("desktopLyricsTop") + moveOffset, screen.height - 100)); break;
-		case "d": config.setItem("desktopLyricsLeft", Math.min(config.getItem("desktopLyricsLeft") + moveOffset, screen.width)); break;
-	}
+	// const moveOffset = e.ctrlKey ? 10 : 1;
+	// switch (e.key.toLowerCase()) {
+	// 	case "w": config.setItem("desktopLyricsTop", Math.max(config.getItem("desktopLyricsTop") - moveOffset, 0)); break;
+	// 	case "a": config.setItem("desktopLyricsLeft", Math.max(config.getItem("desktopLyricsLeft") - moveOffset, 0)); break;
+	// 	case "s": config.setItem("desktopLyricsTop", Math.min(config.getItem("desktopLyricsTop") + moveOffset, screen.height - 100)); break;
+	// 	case "d": config.setItem("desktopLyricsLeft", Math.min(config.getItem("desktopLyricsLeft") + moveOffset, screen.width)); break;
+	// }
 };
 document.documentElement.ondragstart = e => { e.preventDefault(); };
 document.getElementById("appVersion").textContent = SimMusicVersion;
@@ -1667,7 +1667,7 @@ const SettingsPage = {
 		{ type: "color", text: "边框颜色", attachTo: "desktopLyricsStrokeEnabled", configItem: "desktopLyricsStroke" },
 		{ type: "range", text: "字体大小", configItem: "desktopLyricsSize", min: 20, max: 60 },
 		{ type: "range", text: "歌词区域宽度", configItem: "desktopLyricsWidth", min: 500, max: screen.width },
-		{ type: "boolean", text: "始终居中", description: "无视用户左右拖拽操作，保持桌面歌词在屏幕中央。", configItem: "desktopLyricsCentered" },
+		// { type: "boolean", text: "始终居中", description: "无视用户左右拖拽操作，保持桌面歌词在屏幕中央。", configItem: "desktopLyricsCentered" },
 		{ type: "title", text: "曲目下载" },
 		{ type: "select", text: "并行下载数", options: [[1, "1 首曲目"], [2, "2 首曲目"], [3, "3 首曲目"], [4, "4 首曲目"], [5, "5 首曲目"]], description: "下载在线歌曲时并行下载的任务数量。", configItem: "parallelDownload" },
 		{ type: "input", text: "命名格式", description: "可使用 [title] 表示歌曲名，[artist] 表示艺术家。SimMusic 会自动处理系统无法写入的文件名。", configItem: "downloadFileName" },
@@ -1846,9 +1846,12 @@ config.listenChange("desktopLyricsStrokeEnabled", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsStroke", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsSize", updateDesktopLyricsConfig);
 // config.listenChange("desktopLyricsProtection", updateDesktopLyricsConfig);
-config.listenChange("desktopLyricsWidth", updateDesktopLyricsConfig);
-config.listenChange("desktopLyricsTop", updateDesktopLyricsConfig);
-config.listenChange("desktopLyricsLeft", updateDesktopLyricsConfig);
+config.listenChange("desktopLyricsWidth", async v => {
+	await ipcRenderer.invoke("updateLrcWinWidth", parseInt(v));
+	updateDesktopLyricsConfig();
+});
+// config.listenChange("desktopLyricsTop", updateDesktopLyricsConfig);
+// config.listenChange("desktopLyricsLeft", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsCentered", updateDesktopLyricsConfig);
 config.listenChange("desktopLyricsTranslation", updateDesktopLyricsConfig);
 updateDesktopLyricsConfig();

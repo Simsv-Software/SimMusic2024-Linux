@@ -14,7 +14,16 @@ if (!fs.existsSync(configPath)) {
 	fs.writeFileSync(configPath, "{}");
 }
 
-const config = JSON.parse(fs.readFileSync(configPath).toString());
+let deferredSaveConfig;
+let immediatelySaveConfig;
+const _confObj = JSON.parse(fs.readFileSync(configPath).toString());
+const config = new Proxy(_confObj, {
+	get: (obj, k) => obj.hasOwnProperty(k) ? obj[k] : null,
+	set: (obj, k, v) => {
+		obj[k] = v;
+		deferredSaveConfig();
+	}
+});
 
 // 创建窗口
 const iconImage = nativeImage.createFromPath(path.join(__dirname, "frontend/assets/icon-blue.png"));
@@ -66,15 +75,18 @@ const createWindow = () => {
 
 // 桌面歌词
 let lyricsShowing = false;
+let lyricsLocked = false;
+let musicPlaying = false;
 const createLRCWindow = () => {
-	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 	SimMusicWindows.lrcWin = new BrowserWindow({
-		width: width,
-		height: height,
+		x: config.lrcWinX,
+		y: config.lrcWinY,
+		width: config.lrcWinWidth ?? 700,
+		height: 80,
 		frame: false,
-		resizable: false,
 		show: false,
 		transparent: true,
+		resizable: false,
 		alwaysOnTop: true,
 		backgroundThrottling: false,
 		webPreferences: { webSecurity: false, nodeIntegration: true, contextIsolation: false }
@@ -87,7 +99,21 @@ const createLRCWindow = () => {
 
 		createLRCWindow();
 	});
+
+	SimMusicWindows.lrcWin.on("move", () => {
+		const [x, y] = SimMusicWindows.lrcWin.getPosition();
+		config.lrcWinX = x;
+		config.lrcWinY = y;
+	});
 }
+
+const applyLrcLock = (locked) => {
+	SimMusicWindows.lrcWin.setIgnoreMouseEvents(locked ?? lyricsLocked);
+};
+
+const toggleLrcLock = () => {
+	applyLrcLock(lyricsLocked = !lyricsLocked);
+};
 
 const processCliArg = (argv, pending) => {
 	const lastArg = argv[argv.length - 1];
@@ -129,6 +155,11 @@ app.whenReady().then(() => {
 			SimMusicWindows.mainWin.webContents.send("fileLaunch", file);
 		}
 	});
+
+	app.on("before-quit", () => {
+		immediatelySaveConfig();
+	});
+
 	session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
 		desktopCapturer.getSources({ types: ["screen"] }).then((sources) => {
 			callback({ video: sources[0], audio: "loopback" })
@@ -150,20 +181,22 @@ ipcMain.handle("mainWinLoaded", () => {
 // Linux start - 配置
 (() => {
 	let saveTimer;
-	function save() {
-		fs.writeFileSync(configPath, JSON.stringify(config));
+	immediatelySaveConfig = () => {
+		fs.writeFileSync(configPath, JSON.stringify(_confObj));
 	}
+
+	deferredSaveConfig = () => {
+		// Debounce - improves efficiency
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => immediatelySaveConfig(), 1000);
+	};
 
 	ipcMain.handle("setConfig", (_, k, v) => {
 		config[k] = v;
-
-		// Debounce - improves efficiency
-		clearTimeout(saveTimer);
-		saveTimer = setTimeout(save, 1000);
 	});
 
 	ipcMain.handle("getConfig", (_, k) => {
-		return config.hasOwnProperty(k) ? config[k] : null;
+		return config[k];
 	});
 
 	// Save immediately
@@ -217,9 +250,10 @@ ipcMain.handle("dialog", (_event, type, txt, parent, dialogId) => {
 
 	dialogWindow.loadFile(path.join(__dirname, 'frontend/assets/components/dialog.html'));
 	dialogWindow.once("ready-to-show", () => {
-		dialogWindow.webContents.send("ready", JSON.stringify({
-			type, txt, parent, dialogId: dialogId + '' /* Linux - fix error */
-		}));
+		dialogWindow.webContents.send(
+			"ready", JSON.stringify({
+				type, txt, parent, dialogId: dialogId + '' /* Linux - fix error */
+			}));
 
 		dialogWindow.show();
 	});
@@ -294,7 +328,9 @@ ipcMain.handle("modal", (_event, url, height, parent) => {
 
 
 // 任务栏控件
-const createTaskbarButtons = (isPlay) => {
+const createTaskbarButtons = () => {
+	const isPlay = musicPlaying;
+
 	SimMusicWindows.mainWin.setThumbarButtons([
 		{
 			tooltip: "上一首",
@@ -316,6 +352,15 @@ const createTaskbarButtons = (isPlay) => {
 		{ type: "separator" },
 		{ label: "显示主窗口", type: "normal", click() { showMainWin(); } },
 		{ label: isPlay ? "暂停" : "播放", type: "normal", click() { SimMusicWindows.mainWin.webContents.executeJavaScript("SimAPControls.togglePlay()", true); } },
+		{
+			label: lyricsLocked ? "解锁桌面歌词" : "锁定桌面歌词",
+			type: "normal",
+			click() {
+				toggleLrcLock();
+				createTaskbarButtons(isPlay);
+			},
+			enabled: lyricsShowing
+		},
 		{ type: "separator" },
 		{ label: "退出应用", type: "normal", click: app.exit },
 	]);
@@ -325,14 +370,17 @@ const createTaskbarButtons = (isPlay) => {
 
 ipcMain.handle("musicPlay", () => {
 	if (lyricsShowing) SimMusicWindows.lrcWin.webContents.send("setHidden", "inside", false);
-	createTaskbarButtons(true);
+	musicPlaying = true;
+	createTaskbarButtons();
+	applyLrcLock();
 });
 
 ipcMain.handle("musicPause", () => {
 	SimMusicWindows.lrcWin.webContents.send("setHidden", "inside", true);
-	createTaskbarButtons(false);
+	musicPlaying = false;
+	createTaskbarButtons();
+	applyLrcLock(true);
 });
-
 
 
 // 桌面歌词
@@ -341,17 +389,15 @@ ipcMain.handle("toggleLyrics", (_event, isShow) => {
 
 	if (lyricsShowing) {
 		SimMusicWindows.lrcWin.webContents.send("setHidden", "text", true);
-		setTimeout(() => { SimMusicWindows.lrcWin.hide(); }, 100);
+		setTimeout(() => SimMusicWindows.lrcWin.hide(), 100);
 		lyricsShowing = false;
 	} else {
 		SimMusicWindows.lrcWin.show();
-		SimMusicWindows.lrcWin.setIgnoreMouseEvents("true", { forward: true });
-		SimMusicWindows.lrcWin.setSkipTaskbar(true);
-		SimMusicWindows.lrcWin.setAlwaysOnTop(false);
-		SimMusicWindows.lrcWin.setAlwaysOnTop(true);
 		lyricsShowing = true;
-		setTimeout(() => { SimMusicWindows.lrcWin.webContents.send("setHidden", "text", false); }, 400);
+		setTimeout(() => SimMusicWindows.lrcWin.webContents.send("setHidden", "text", false), 400);
 	}
+
+	createTaskbarButtons();
 
 	return lyricsShowing;
 });
@@ -360,17 +406,15 @@ ipcMain.handle("lrcUpdate", (_event, lrc) => {
 	SimMusicWindows.lrcWin.webContents.send("lrcUpdate", lrc);
 });
 
-ipcMain.handle("focusDesktopLyrics", () => {
-	SimMusicWindows.lrcWin.setIgnoreMouseEvents(false);
-});
-
-ipcMain.handle("unfocusDesktopLyrics", () => {
-	SimMusicWindows.lrcWin.setIgnoreMouseEvents(true, { forward: true });
-});
-
-ipcMain.handle("updateDesktopLyricsConfig", (_event, isProtected) => {
+ipcMain.handle("updateDesktopLyricsConfig", (_event, _isProtected) => {
 	SimMusicWindows.lrcWin.webContents.send("lrcWinReload");
-	SimMusicWindows.lrcWin.setContentProtection(isProtected);
+	// SimMusicWindows.lrcWin.setContentProtection(isProtected);
+});
+
+ipcMain.handle("updateLrcWinWidth", (_, width) => {
+	SimMusicWindows.lrcWin.setSize(width, 80);
+	SimMusicWindows.lrcWin.setContentSize(width, 80);
+	config.lrcWinWidth = width;
 });
 
 
@@ -379,7 +423,7 @@ ipcMain.handle("updateDesktopLyricsConfig", (_event, isProtected) => {
 let isMiniMode = false;
 ipcMain.handle("toggleMini", () => {
 	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-	SimMusicWindows.mainWin.setOpacity(0);
+	// SimMusicWindows.mainWin.setOpacity(0);
 	if (isMiniMode) {
 		setTimeout(() => {
 			SimMusicWindows.mainWin.setMinimumSize(1000, 700);
@@ -388,10 +432,10 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setResizable(true);
 			SimMusicWindows.mainWin.setHasShadow(true);
 			SimMusicWindows.mainWin.setAlwaysOnTop(false);
-			SimMusicWindows.mainWin.setSkipTaskbar(false);
-			SimMusicWindows.mainWin.setOpacity(1);
-			SimMusicWindows.mainWin.setMinimizable(true);
-			SimMusicWindows.mainWin.setClosable(true);
+			// SimMusicWindows.mainWin.setSkipTaskbar(false);
+			// SimMusicWindows.mainWin.setOpacity(1);
+			// SimMusicWindows.mainWin.setMinimizable(true);
+			// SimMusicWindows.mainWin.setClosable(true);
 			if (config.nativeHeaderButtons) {
 				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
 			}
@@ -404,14 +448,14 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.unmaximize();
 			SimMusicWindows.mainWin.setMinimumSize(340, miniHeight);
 			SimMusicWindows.mainWin.setSize(340, miniHeight);
+			SimMusicWindows.mainWin.setPosition(width - 360, height - 90);
 			SimMusicWindows.mainWin.setResizable(false);
 			SimMusicWindows.mainWin.setHasShadow(false);
 			SimMusicWindows.mainWin.setAlwaysOnTop(true);
-			SimMusicWindows.mainWin.setSkipTaskbar(true);
-			SimMusicWindows.mainWin.setPosition(width - 360, height - 90);
-			SimMusicWindows.mainWin.setOpacity(.98);
-			SimMusicWindows.mainWin.setMinimizable(false);
-			SimMusicWindows.mainWin.setClosable(false);
+			// SimMusicWindows.mainWin.setSkipTaskbar(true);
+			// SimMusicWindows.mainWin.setOpacity(.98);
+			// SimMusicWindows.mainWin.setMinimizable(false);
+			// SimMusicWindows.mainWin.setClosable(false);
 			if (config.nativeHeaderButtons) {
 				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 1 });
 			}
@@ -502,8 +546,8 @@ ipcMain.handle("mainWinExec", (_event, js) => {
 });
 
 ipcMain.handle("openDevtools", () => {
-	SimMusicWindows.mainWin.webContents.openDevTools();
-	// SimMusicWindows.lrcWin.webContents.openDevTools();
+	// SimMusicWindows.mainWin.webContents.openDevTools();
+	SimMusicWindows.lrcWin.webContents.openDevTools();
 });
 
 

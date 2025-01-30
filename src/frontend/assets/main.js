@@ -1611,7 +1611,7 @@ const SettingsPage = {
 		{ type: "title", text: "通用配置" },
 		{ type: "boolean", text: "不驻留后台进程", description: "关闭主界面时停止播放并完全退出应用。", configItem: "disableBackground" },
 		// {type: "boolean", text: "注册系统菜单", badges: ["experimental"], description: "开启后，您可以在音频文件右键的「打开方式」菜单中选择 SimMusic 进行播放。在移动 SimMusic 程序目录或移除 SimMusic 前，您需要先关闭此选项。", configItem: "systemMenu"}, /* Linux - Unimplemented */
-		{ type: "boolean", text: "使用原生窗口操作按钮", badges: ["experimental"], description: "目前兼容性较差，暂时不建议使用，重启生效。", configItem: "nativeHeaderButtons" },
+		{ type: "boolean", text: "使用原生窗口操作按钮", badges: ["experimental"], description: "目前兼容性较差，暂时不建议使用。", configItem: "nativeHeaderButtons" },
 		{ type: "input", inputType: "number", text: "顶端操作按钮与系统窗口操作按钮的距离", description: "单位 px，KDE 下为 96，若此数值不合适请手动调整。", configItem: "headerButtonsDistance", attachTo: "nativeHeaderButtons" },
 		{ type: "boolean", text: "减小小窗模式高度", description: "可以修复部分环境中小窗模式渲染问题，若无问题无需开启。", configItem: "decreaseMiniHeight" },
 		{ type: "title", text: "音频扫描" },
@@ -1856,29 +1856,24 @@ updateDesktopLyricsConfig();
 if (config.getItem("autoDesktopLyrics")) WindowOps.toggleLyrics();
 
 (() => {
-	const currentState = config.getItem("nativeHeaderButtons");
+	let currentState = config.getItem("nativeHeaderButtons");
 	const header = document.querySelector("header");
 	const nonNativeBtns = header.querySelector("#nonNativeButtons");
-	nonNativeBtns.hidden = config.getItem("nativeHeaderButtons");
 
-	function adjustHeaderDistance(v) {
-		header.style.width = currentState ? `calc(100% - ${v}px)` : "100%";
+	function updateHeader() {
+		const distance = config.getItem("headerButtonsDistance");
+		header.style.width = currentState ? `calc(100% - ${distance}px)` : "100%";
+		nonNativeBtns.hidden = currentState;
 	}
 
-	config.listenChange("headerButtonsDistance", adjustHeaderDistance);
-	adjustHeaderDistance(config.getItem("headerButtonsDistance"));
+	config.listenChange("headerButtonsDistance", updateHeader);
+	updateHeader();
 
 	config.listenChange("nativeHeaderButtons", async v => {
-		if (v == currentState) {
-			return;
-		}
-
+		currentState = v;
 		await ipcRenderer.invoke("setConfig", "nativeHeaderButtons", v);
-
-		confirm("由于技术限制，您需要重启 SimMusic 才能" + (v ? "启用" : "禁用") + "原生操作按钮。您希望现在就重启吗？", async () => {
-			await ipcRenderer.invoke("saveConfig");
-			ipcRenderer.invoke("restart");
-		})
+		await ipcRenderer.invoke("toggleOverlay", v);
+		updateHeader();
 	});
 })();
 

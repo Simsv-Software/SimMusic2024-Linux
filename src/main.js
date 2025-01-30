@@ -54,7 +54,6 @@ const createWindow = () => {
 	}
 
 	SimMusicWindows.mainWin = new BrowserWindow(options);
-
 	SimMusicWindows.mainWin.loadFile(path.join(__dirname, "frontend/main.html"));
 	SimMusicWindows.mainWin.setIcon(iconImage);
 
@@ -147,7 +146,7 @@ ipcMain.handle("mainWinLoaded", () => {
 
 	if (config.nativeHeaderButtons) {
 		setTimeout(() => {
-			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
+			SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black" });
 		}, 500);
 	}
 
@@ -180,13 +179,19 @@ ipcMain.handle("mainWinLoaded", () => {
 })();
 // Linux end
 
-// Linux start - fix incorrect overlay color
+// Linux start - Overlay
 ipcMain.handle("overlayColor", (_, inPlayer) => {
 	if (!config.nativeHeaderButtons) {
 		return;
 	}
 
-	SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: inPlayer ? "rgba(255,255,255,.8)" : "black", height: 35 });
+	SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: inPlayer ? "rgba(255,255,255,.8)" : "black" });
+});
+
+ipcMain.handle("toggleOverlay", (_, enabled) => {
+	SimMusicWindows.mainWin.setTitleBarOverlay({
+		height: enabled ? 35 : 1
+	});
 });
 // Linux end
 
@@ -418,7 +423,7 @@ ipcMain.handle("toggleMini", () => {
 			SimMusicWindows.mainWin.setMinimizable(false);
 			SimMusicWindows.mainWin.setClosable(false);
 			if (config.nativeHeaderButtons) {
-				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 10 });
+				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 1 });
 			}
 		}, 50);
 		return isMiniMode = true;

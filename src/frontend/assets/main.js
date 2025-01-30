@@ -28,12 +28,11 @@ const WindowOps = {
 				document.getElementById("lyricsBtn").classList[lyricsShow ? "add" : "remove"]("active");
 			});
 	},
-	toggleMini() {
+	async toggleMini() {
 		if (!document.body.classList.contains("withCurrentMusic")) return alert("当前没有正在播放的曲目。");
-		ipcRenderer.invoke("toggleMini")
-			.then(isMini => {
-				document.body.classList[isMini ? "add" : "remove"]("miniMode");
-			});
+		const isMini = await ipcRenderer.invoke("toggleMini");
+		await ipcRenderer.invoke("toggleOverlay", !isMini);
+		document.body.classList[isMini ? "add" : "remove"]("miniMode");
 	},
 };
 document.body.onresize = () => {

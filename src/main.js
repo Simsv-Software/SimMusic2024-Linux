@@ -82,7 +82,7 @@ const createLRCWindow = () => {
 		x: config.lrcWinX,
 		y: config.lrcWinY,
 		width: config.lrcWinWidth ?? 700,
-		height: 80,
+		height: config.lrcWinHeight ?? 80,
 		frame: false,
 		show: false,
 		transparent: true,
@@ -411,11 +411,24 @@ ipcMain.handle("updateDesktopLyricsConfig", (_event, _isProtected) => {
 	// SimMusicWindows.lrcWin.setContentProtection(isProtected);
 });
 
-ipcMain.handle("updateLrcWinWidth", (_, width) => {
-	SimMusicWindows.lrcWin.setSize(width, 80);
-	SimMusicWindows.lrcWin.setContentSize(width, 80);
-	config.lrcWinWidth = width;
-});
+(() => {
+	function update() {
+		const width = config.lrcWinWidth ?? 700;
+		const height = config.lrcWinHeight ?? 80;
+		SimMusicWindows.lrcWin.setSize(width, height);
+		SimMusicWindows.lrcWin.setContentSize(width, height);
+	}
+
+	ipcMain.handle("updateLrcWinWidth", (_, width) => {
+		config.lrcWinWidth = width;
+		update();
+	});
+
+	ipcMain.handle("updateLrcWinHeight", (_, height) => {
+		config.lrcWinHeight = height > 0 ? height : 80;
+		update();
+	});
+})();
 
 
 

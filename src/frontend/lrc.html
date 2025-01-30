@@ -31,6 +31,10 @@
 			display: none !important;
 		}
 
+		::-webkit-scrollbar {
+			display: none;
+		}
+
 		#lyrics {
 			position: fixed;
 			width: var(--fontWidth);
@@ -103,6 +107,10 @@
 			document.body.style.setProperty("--fontWidth", width + "px");
 			document.body.classList[config.getItem("desktopLyricsStrokeEnabled") ? "add" : "remove"]("showStroke");
 			document.body.classList[config.getItem("desktopLyricsTranslation") ? "add" : "remove"]("showTranslation");
+
+			requestAnimationFrame(() => {
+				ipcRenderer.invoke("updateLrcWinHeight", text.clientHeight);
+			});
 		}
 
 		ipcRenderer.on("lrcWinReload", reloadConfig);

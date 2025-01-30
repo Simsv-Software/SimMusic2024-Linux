@@ -1,0 +1,12 @@
+[SimMusic 桌面歌词 的窗口设置]
+Description=SimMusic 桌面歌词 的窗口设置
+skippager=true
+skippagerrule=3
+skipswitcher=true
+skipswitcherrule=3
+skiptaskbar=true
+skiptaskbarrule=3
+title=SimMusic 桌面歌词
+titlematch=1
+wmclass=sim-music
+wmclassmatch=1

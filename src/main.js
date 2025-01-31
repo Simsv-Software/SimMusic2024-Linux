@@ -201,7 +201,7 @@ ipcMain.handle("mainWinLoaded", () => {
 
 	// Save immediately
 	ipcMain.handle("saveConfig", () => {
-		save();
+		immediatelySaveConfig();
 	});
 })();
 // Linux end

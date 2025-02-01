@@ -37,7 +37,7 @@
 			const params = JSON.parse(data);
 
 			webview.setAttribute("partition", "dialog-" + params["dialogId"]);
-			if (params["showFinishBtn"] == "true") {
+			if (params.showFinishBtn) {
 				document.body.classList.add("showBtn");
 			}
 

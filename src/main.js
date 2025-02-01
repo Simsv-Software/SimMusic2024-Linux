@@ -449,13 +449,11 @@ ipcMain.handle("toggleMini", () => {
 			// SimMusicWindows.mainWin.setOpacity(1);
 			// SimMusicWindows.mainWin.setMinimizable(true);
 			// SimMusicWindows.mainWin.setClosable(true);
-			if (config.nativeHeaderButtons) {
-				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(255,255,255,0)", symbolColor: "black", height: 35 });
-			}
+			SimMusicWindows.mainWin.setTitleBarOverlay({ height: config.nativeHeaderButtons ? 35 : 1 });
 		}, 50);
 		return isMiniMode = false;
 	} else {
-		const miniHeight = config.decreaseMiniHeight ? 55 : 60;
+		const miniHeight = config.decreaseMiniHeight ? (60 - (config.miniDecreaseAmount ?? 5)) : 60;
 
 		setTimeout(() => {
 			SimMusicWindows.mainWin.unmaximize();
@@ -470,7 +468,7 @@ ipcMain.handle("toggleMini", () => {
 			// SimMusicWindows.mainWin.setMinimizable(false);
 			// SimMusicWindows.mainWin.setClosable(false);
 			if (config.nativeHeaderButtons) {
-				SimMusicWindows.mainWin.setTitleBarOverlay({ color: "rgba(0,0,0,0)", symbolColor: "rgba(255,255,255,0)", height: 1 });
+				SimMusicWindows.mainWin.setTitleBarOverlay({ height: 1 });
 			}
 		}, 50);
 		return isMiniMode = true;

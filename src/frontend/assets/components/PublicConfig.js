@@ -8,6 +8,7 @@ const defaultConfig = {
 	volume: .8,
 	loop: 0,
 	headerButtonsDistance: 96,
+	miniDecreaseAmount: 5,
 	lrcShow: true,
 	albumScale: true,
 	musicFormats: ".mp3 .wav .flac",

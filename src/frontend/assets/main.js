@@ -1613,6 +1613,7 @@ const SettingsPage = {
 		{ type: "boolean", text: "使用原生窗口操作按钮", badges: ["experimental"], description: "目前兼容性较差，暂时不建议使用。", configItem: "nativeHeaderButtons" },
 		{ type: "input", inputType: "number", text: "顶端操作按钮与系统窗口操作按钮的距离", description: "单位 px，KDE 下为 96，若此数值不合适请手动调整。", configItem: "headerButtonsDistance", attachTo: "nativeHeaderButtons" },
 		{ type: "boolean", text: "减小小窗模式高度", description: "可以修复部分环境中小窗模式渲染问题，若无问题无需开启。", configItem: "decreaseMiniHeight" },
+		{ type: "input", text: "小窗模式高度减小量", description: "单位 px，默认为 5，您可以对高度进行微调。", configItem: "miniDecreaseAmount", inputType: "number", attachTo: "decreaseMiniHeight" },
 		{ type: "title", text: "音频扫描" },
 		{ type: "input", text: "本地音频格式", description: "扫描本地音乐与导入本地文件时识别的音频文件扩展名，以空格分隔。", configItem: "musicFormats" },
 		async () => {
@@ -1879,8 +1880,10 @@ if (config.getItem("autoDesktopLyrics")) WindowOps.toggleLyrics();
 	});
 })();
 
-config.listenChange("decreaseMiniHeight", async v => {
-	await ipcRenderer.invoke("setConfig", "decreaseMiniHeight", v);
+["decreaseMiniHeight", "miniDecreaseAmount"].forEach(it => {
+	config.listenChange(it, async v => {
+		await ipcRenderer.invoke("setConfig", it, v);
+	});
 });
 
 // 关于页面

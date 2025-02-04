@@ -50,7 +50,7 @@ const FileExtensionTools = {
 		return `${formattedMinutes}:${formattedSeconds}.${formattedMilliseconds}`;
 	},
 	fileMenuItem: [
-		{ type: ["single"], content: { label: "在资源管理器显示", click() { shell.showItemInFolder(getCurrentSelected()[0]) } } }
+		{ type: ["single"], content: { label: "在资源管理器显示", click() { shell.showItemInFolder(getCurrentSelected()[0].substring(5)) } } } // Linux - fix incorrect call
 	]
 }
 
